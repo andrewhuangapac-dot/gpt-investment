@@ -13,14 +13,15 @@
         .font-mono { font-family: 'Roboto Mono', monospace; }
         .nums { font-variant-numeric: tabular-nums; }
         
-        /* 美股慣例：綠漲紅跌 */
+        /* 漲跌顏色 */
         .text-up { color: #4ade80; }
         .text-down { color: #f87171; }
         .bg-up { background-color: rgba(74, 222, 128, 0.15); }
         .bg-down { background-color: rgba(248, 113, 113, 0.15); }
         
-        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        /* 動畫 */
+        .list-enter-active, .list-leave-active { transition: all 0.4s ease; }
+        .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-20px); }
     </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
 
     <header class="bg-slate-900/90 backdrop-blur px-5 py-4 flex justify-between items-center sticky top-0 z-30 border-b border-slate-800">
         <div>
-            <h1 class="text-xl font-bold text-white tracking-wide">GPT投資看板</h1>
+            <h1 class="text-xl font-bold text-white tracking-wide">US MarketVue</h1>
             <div class="flex items-center gap-2 mt-1">
                 <span class="w-2 h-2 rounded-full" :class="dbConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'"></span>
                 <span class="text-xs text-slate-400">{{ dbConnected ? '系統連線正常' : '連線中...' }}</span>
@@ -41,20 +42,39 @@
     </header>
 
     <div v-if="notices.length > 0 || isAdmin" class="px-4 pt-4">
-        <div class="bg-gradient-to-r from-indigo-900/40 to-slate-800 border border-indigo-500/20 rounded-xl p-4 shadow-sm">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-widest flex items-center gap-1">
-                    <span class="material-icons-round text-sm">campaign</span> GPT投資公告
+        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
+                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                    <span class="material-icons-round text-sm">campaign</span> GPT投資公告 (Top 5)
                 </h3>
-                <button v-if="isAdmin" @click="addNotice" class="text-xs bg-indigo-600 hover:bg-indigo-500 px-2 py-1 rounded text-white transition">+ 新增</button>
+                <button v-if="isAdmin" @click="addNotice" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-full text-white transition flex items-center gap-1">
+                    <span class="material-icons-round text-xs">edit</span> 發布
+                </button>
             </div>
-            <div class="space-y-2">
-                <transition-group name="fade">
-                    <div v-for="notice in notices" :key="notice.id" class="flex justify-between items-start text-sm group border-b border-indigo-500/10 pb-2 last:border-0 last:pb-0">
-                        <span class="text-indigo-100 leading-relaxed">{{ notice.content }}</span>
-                        <button v-if="isAdmin" @click="removeNotice(notice.id)" class="text-slate-500 hover:text-red-400 ml-2">
-                            <span class="material-icons-round text-xs">close</span>
-                        </button>
+            
+            <div class="space-y-3">
+                <p v-if="notices.length === 0" class="text-xs text-slate-500 text-center py-2">目前無公告</p>
+                
+                <transition-group name="list">
+                    <div v-for="(notice, index) in notices" :key="notice.id" class="relative pl-4 group">
+                        <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-slate-700 group-last:hidden"></div>
+                        <div class="absolute left-[-2px] top-2 w-1.5 h-1.5 rounded-full" :class="index === 0 ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'"></div>
+                        
+                        <div class="flex items-start gap-3 pb-1">
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" 
+                                  :class="index === 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'">
+                                {{ notice.dateStr || 'Today' }}
+                            </span>
+                            
+                            <div class="flex-1 flex justify-between items-start">
+                                <p class="text-sm leading-snug" :class="index === 0 ? 'text-white font-medium' : 'text-slate-300'">
+                                    {{ notice.content }}
+                                </p>
+                                <button v-if="isAdmin" @click="removeNotice(notice.id)" class="text-slate-600 hover:text-red-400 ml-2 opacity-0 group-hover:opacity-100 transition">
+                                    <span class="material-icons-round text-xs">close</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </transition-group>
             </div>
@@ -75,7 +95,7 @@
             <p class="text-sm">點擊右下角 + 新增美股代號</p>
         </div>
 
-        <transition-group name="fade">
+        <transition-group name="list">
             <div v-for="stock in stocks" :key="stock.id" class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700/60 relative hover:border-slate-600 transition duration-300">
                 
                 <button v-if="isAdmin" @click="removeStock(stock.id)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-10 hover:bg-red-600 transition">
@@ -141,14 +161,16 @@
 <script type="module">
     import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } 
+    // 引入 getDocs 用於清理舊公告
+    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDocs } 
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ==========================================
-    // 1. ⚠️ 請務必填入您的 Firebase Config
+    // ⚠️ 請務必填入您的 Firebase Config
     // ==========================================
     const firebaseConfig = {
-  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
+	const firebaseConfig = {
+  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
   authDomain: "stock-app-1f470.firebaseapp.com",
   databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "stock-app-1f470",
@@ -158,7 +180,7 @@
     };
 
     // ==========================================
-    // 2. ⚠️ 填入您的 Finnhub API Key
+    // ⚠️ 填入您的 Finnhub API Key
     // ==========================================
     const FINNHUB_KEY = "d4rfo69r01qgts2nq050d4rfo69r01qgts2nq05g"; 
 
@@ -174,7 +196,7 @@
             const isAdmin = ref(false);
             const showAddModal = ref(false);
             const isUpdatingPrices = ref(false);
-            const isSaving = ref(false); // 新增狀態
+            const isSaving = ref(false);
             const dbConnected = ref(false);
             
             const stocks = ref([]);
@@ -185,9 +207,8 @@
             onMounted(() => {
                 if(!db) return;
 
-                // 監聽 Firebase 資料
+                // 股票監聽
                 const qStocks = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
-                
                 onSnapshot(qStocks, (snapshot) => {
                     dbConnected.value = true;
                     const stockList = snapshot.docs.map(doc => {
@@ -206,25 +227,20 @@
                         triggerPriceUpdate();
                     }
                 }, (error) => {
-                    // 這裡可以抓到權限錯誤
-                    console.error("Firebase 讀取錯誤:", error);
-                    if(error.code === 'permission-denied') {
-                        alert("⚠️ 讀取失敗：權限不足。\n\n請到 Firebase Console > Firestore > Rules\n將 allow read, write: if false; 改為 if true;");
-                    }
+                    if(error.code === 'permission-denied') alert("讀取權限不足");
                 });
 
+                // 公告監聽
                 const qNotices = query(collection(db, "notices"), orderBy("createdAt", "desc"));
                 onSnapshot(qNotices, (snapshot) => {
                     notices.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 });
             });
 
+            // 抓即時股價
             const triggerPriceUpdate = async () => {
                 if (stocks.value.length === 0) return;
-                if (!FINNHUB_KEY || FINNHUB_KEY.includes("您的")) {
-                    console.warn("未設定 Finnhub Key");
-                    return;
-                }
+                if (!FINNHUB_KEY || FINNHUB_KEY.includes("YOUR")) return console.warn("未設定 Finnhub Key");
 
                 isUpdatingPrices.value = true;
                 const promises = stocks.value.map(async (stock) => {
@@ -238,9 +254,7 @@
                             stock.currentPrice = data.c;
                             stock.lastUpdate = new Date();
                         }
-                    } catch (e) {
-                        console.error(`抓取 ${stock.code} 失敗`, e);
-                    }
+                    } catch (e) { console.error(e); }
                 });
                 await Promise.all(promises);
                 isUpdatingPrices.value = false;
@@ -248,48 +262,70 @@
 
             const confirmAddStock = async () => {
                 if (!newStock.value.code || !newStock.value.cost) return alert("請完整填寫");
-                
-                isSaving.value = true; // 開啟載入狀態
-
+                isSaving.value = true;
                 try {
                     await addDoc(collection(db, "stocks"), {
                         code: newStock.value.code.toUpperCase(),
                         cost: parseFloat(newStock.value.cost),
                         createdAt: serverTimestamp()
                     });
-                    
-                    // 成功後才執行這些
                     newStock.value = { code: '', cost: '' };
                     showAddModal.value = false;
                     setTimeout(triggerPriceUpdate, 500); 
-
                 } catch (e) {
-                    console.error("新增失敗:", e);
-                    if (e.code === 'permission-denied') {
-                        alert("❌ 新增失敗：權限被拒絕。\n\n您必須到 Firebase Console 修改 Rules (規則) 為 true。");
-                    } else {
-                        alert("新增失敗: " + e.message);
-                    }
-                } finally {
-                    isSaving.value = false; // 無論成功失敗都關閉載入狀態
-                }
+                    alert("新增失敗: " + e.message);
+                } finally { isSaving.value = false; }
             };
 
+            // 🔥 新增公告邏輯 (自動日期 + 自動清理)
             const addNotice = async () => {
-                const txt = prompt("輸入公告:");
-                if(txt) await addDoc(collection(db, "notices"), { content: txt, createdAt: serverTimestamp() });
+                const txt = prompt("請輸入公告內容 (系統將自動加上日期):");
+                if (!txt) return;
+
+                try {
+                    // 1. 產生格式化日期 (如 12/09)
+                    const now = new Date();
+                    const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
+
+                    // 2. 寫入新公告
+                    await addDoc(collection(db, "notices"), {
+                        content: txt,
+                        dateStr: dateStr, // 存入字串以便顯示
+                        createdAt: serverTimestamp()
+                    });
+
+                    // 3. 自動清理：檢查是否超過 5 則
+                    // 抓取所有公告 (按時間倒序)
+                    const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
+                    const snapshot = await getDocs(q);
+
+                    if (snapshot.size > 5) {
+                        // 取得第 6 則以後的所有文件 (slice index 從 5 開始)
+                        const noticesToDelete = snapshot.docs.slice(5);
+                        
+                        // 依序刪除
+                        for (const docToDelete of noticesToDelete) {
+                            await deleteDoc(docToDelete.ref);
+                        }
+                        console.log(`已自動清理 ${noticesToDelete.length} 則舊公告`);
+                    }
+
+                } catch(e) {
+                    console.error("公告發布失敗", e);
+                    alert("公告發布失敗 (權限不足?)");
+                }
             };
 
             const removeStock = async (id) => {
                 if(confirm("刪除此項目?")) await deleteDoc(doc(db, "stocks", id));
             };
-             const removeNotice = async (id) => {
+            const removeNotice = async (id) => {
                 if(confirm("刪除公告?")) await deleteDoc(doc(db, "notices", id));
             };
 
             const toggleAdmin = () => {
                 if (isAdmin.value) isAdmin.value = false;
-                else if (prompt("密碼") === "tiktok") isAdmin.value = true;
+                else if (prompt("密碼") === "888") isAdmin.value = true;
             };
 
             const getPnLPercent = (stock) => {
