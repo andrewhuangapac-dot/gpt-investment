@@ -1,23 +1,161 @@
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 实时日志监控</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Courier New', Courier, monospace; }
+        .log-item { border-left: 4px solid #3b82f6; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div id="app" class="max-w-3xl mx-auto p-6">
+    <header class="mb-6 flex justify-between items-center border-b border-gray-700 pb-4">
+        <h1 class="text-2xl font-bold text-blue-400">📡 系统日志监控终端</h1>
+        <span class="px-3 py-1 rounded text-sm font-bold" 
+              :class="statusClass">
+            {{ connectionStatus }}
+        </span>
+    </header>
+
+    <div class="bg-gray-800 p-4 rounded mb-6 border border-gray-700">
+        <h3 class="text-sm text-gray-400 mb-2">🛠 手动测试通道</h3>
+        <div class="flex gap-2">
+            <input type="text" v-model="testMessage" @keyup.enter="sendTestLog"
+                   placeholder="输入测试内容，按回车发送..."
+                   class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500 text-white">
+            <button @click="sendTestLog" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition">
+                发送信号
+            </button>
+        </div>
+    </div>
+
+    <div class="space-y-3">
+        <div v-if="logs.length === 0" class="text-gray-500 text-center py-10 italic">
+            Waiting for signals... (暂无数据)
+        </div>
+
+        <div v-for="(log, index) in logs" :key="index" class="log-item bg-gray-800 p-3 rounded shadow hover:bg-gray-750 transition">
+            <div class="flex justify-between items-start">
+                <span class="text-green-400 font-bold mr-2">></span>
+                <span class="flex-1 break-all">{{ log.content }}</span>
+                <span class="text-xs text-gray-500 ml-2 whitespace-nowrap">{{ log.time }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    const config = {
-      apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
+    // ⚠️⚠️⚠️ 请在此处粘贴你的配置 ⚠️⚠️⚠️
+    const firebaseConfig = {
+      apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
       authDomain: "stock-app-1f470.firebaseapp.com",
       databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "stock-app-1f470",
-      storageBucket: "stock-app-1f470.firebasestorage.app",
-      messagingSenderId: "474136651144",
-      appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
+      storageBucket: "stock-app-1f470.firebasestorage.app",
+      messagingSenderId: "474136651144",
+      appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
     };
-    try {
-        firebase.initializeApp(config);
-        console.log("初始化成功，尝试连接...");
-        firebase.database().ref('.info/connected').on('value', s => {
-            if(s.val() === true) alert("✅ 连接成功！是代码逻辑问题");
-            else console.log("⏳ 正在连接...");
-        });
-    } catch(e) {
-        alert("❌ 初始化就挂了: " + e.message);
-    }
+
+    new Vue({
+        el: '#app',
+        data: {
+            logs: [],
+            connectionStatus: '系统初始化...',
+            statusType: 'loading', // loading, success, error
+            testMessage: ''
+        },
+        computed: {
+            statusClass() {
+                if (this.statusType === 'success') return 'bg-green-900 text-green-300';
+                if (this.statusType === 'error') return 'bg-red-900 text-red-300';
+                return 'bg-yellow-900 text-yellow-300';
+            }
+        },
+        mounted() {
+            this.initFirebase();
+        },
+        methods: {
+            initFirebase() {
+                try {
+                    // 1. 初始化
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    
+                    // 2. 更新状态：证明代码跑通了
+                    this.connectionStatus = '🟢 已连接数据库，正在监听...';
+                    this.statusType = 'success';
+
+                    // 3. 开始监听 'logs' 节点
+                    const dbRef = firebase.database().ref('logs');
+                    
+                    // 使用 child_added，每次有新数据（或初次加载旧数据）都会触发一次
+                    dbRef.on('child_added', (snapshot) => {
+                        const rawVal = snapshot.val();
+                        console.log("收到数据:", rawVal); // 在控制台打印，方便调试
+
+                        // 处理数据格式：如果是对象就取 text，如果是纯字符串就直接用
+                        let displayContent = '';
+                        let displayTime = new Date().toLocaleTimeString();
+
+                        if (typeof rawVal === 'object' && rawVal !== null) {
+                            displayContent = rawVal.text || JSON.stringify(rawVal);
+                            if(rawVal.timestamp) displayTime = new Date(rawVal.timestamp).toLocaleTimeString();
+                        } else {
+                            displayContent = String(rawVal);
+                        }
+
+                        // 将新数据推入数组头部 (最新的在最上面，如果想在下面就把 unshift 改成 push)
+                        this.logs.unshift({
+                            content: displayContent,
+                            time: displayTime
+                        });
+                    }, (error) => {
+                        // 监听过程报错（通常是权限不足）
+                        console.error(error);
+                        this.connectionStatus = '❌ 权限/读取错误: ' + error.message;
+                        this.statusType = 'error';
+                    });
+
+                } catch (e) {
+                    console.error(e);
+                    this.connectionStatus = '❌ 配置错误: ' + e.message;
+                    this.statusType = 'error';
+                }
+            },
+            
+            // 发送测试数据的功能
+            sendTestLog() {
+                if (!this.testMessage.trim()) return;
+
+                const dbRef = firebase.database().ref('logs');
+                const newLog = {
+                    text: this.testMessage,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP // 让服务器打时间戳
+                };
+
+                // 推送数据
+                dbRef.push(newLog)
+                    .then(() => {
+                        console.log("发送成功");
+                        this.testMessage = ''; // 清空输入框
+                    })
+                    .catch(error => {
+                        alert("发送失败: " + error.message);
+                    });
+            }
+        }
+    });
 </script>
+</body>
+</html>
