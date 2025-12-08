@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT美股投資看板</title>
+    <title>GPT投資看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -13,9 +13,9 @@
         .font-mono { font-family: 'Roboto Mono', monospace; }
         .nums { font-variant-numeric: tabular-nums; }
         
-        /* 美股慣例：綠漲紅跌 (若習慣台股紅漲綠跌，請互換顏色代碼) */
-        .text-up { color: #4ade80; }   /* 綠色 (漲) */
-        .text-down { color: #f87171; } /* 紅色 (跌) */
+        /* 美股慣例：綠漲紅跌 */
+        .text-up { color: #4ade80; }
+        .text-down { color: #f87171; }
         .bg-up { background-color: rgba(74, 222, 128, 0.15); }
         .bg-down { background-color: rgba(248, 113, 113, 0.15); }
         
@@ -32,7 +32,7 @@
             <h1 class="text-xl font-bold text-white tracking-wide">US MarketVue</h1>
             <div class="flex items-center gap-2 mt-1">
                 <span class="w-2 h-2 rounded-full" :class="dbConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'"></span>
-                <span class="text-xs text-slate-400">{{ dbConnected ? '數據同步中' : '連線中...' }}</span>
+                <span class="text-xs text-slate-400">{{ dbConnected ? '系統連線正常' : '連線中...' }}</span>
             </div>
         </div>
         <button @click="toggleAdmin" :class="isAdmin ? 'text-blue-400 bg-blue-500/10' : 'text-slate-600'" class="p-2 rounded-full transition active:scale-95">
@@ -129,7 +129,9 @@
             </div>
             <div class="flex gap-3 mt-8">
                 <button @click="showAddModal = false" class="flex-1 py-3 rounded-xl text-slate-400 bg-slate-700/50 hover:bg-slate-700 transition">取消</button>
-                <button @click="confirmAddStock" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-500 transition">確認新增</button>
+                <button @click="confirmAddStock" :disabled="isSaving" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    {{ isSaving ? '儲存中...' : '確認新增' }}
+                </button>
             </div>
         </div>
     </div>
@@ -143,10 +145,10 @@
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ==========================================
-    // 1. ⚠️ 填入您的 Firebase Config
+    // 1. ⚠️ 請務必填入您的 Firebase Config
     // ==========================================
     const firebaseConfig = {
-  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
+  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
   authDomain: "stock-app-1f470.firebaseapp.com",
   databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "stock-app-1f470",
@@ -156,31 +158,28 @@
     };
 
     // ==========================================
-    // 2. ⚠️ 填入您的 Finnhub API Key (用於抓取真實美股)
-    // 申請網址: https://finnhub.io/register
+    // 2. ⚠️ 填入您的 Finnhub API Key
     // ==========================================
     const FINNHUB_KEY = "d4rfo69r01qgts2nq050d4rfo69r01qgts2nq05g"; 
-
 
     // 初始化 Firebase
     let db;
     try {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Firebase 初始化失敗", e); }
 
     createApp({
         setup() {
             const isAdmin = ref(false);
             const showAddModal = ref(false);
             const isUpdatingPrices = ref(false);
+            const isSaving = ref(false); // 新增狀態
             const dbConnected = ref(false);
             
             const stocks = ref([]);
             const notices = ref([]);
             const newStock = ref({ code: '', cost: '' });
-            
-            // 本地暫存：{ stockId: { price: 120.5, time: '10:00' } }
             const localMarketData = ref({}); 
 
             onMounted(() => {
@@ -188,6 +187,7 @@
 
                 // 監聽 Firebase 資料
                 const qStocks = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
+                
                 onSnapshot(qStocks, (snapshot) => {
                     dbConnected.value = true;
                     const stockList = snapshot.docs.map(doc => {
@@ -196,15 +196,20 @@
                         return {
                             id: doc.id,
                             ...savedData,
-                            currentPrice: market.price || savedData.cost, // 暫時用成本價當預設，直到抓到價格
+                            currentPrice: market.price || savedData.cost, 
                             lastUpdate: market.time
                         };
                     });
                     stocks.value = stockList;
                     
-                    // 如果有股票且尚未抓過價格，自動抓一次
                     if(stockList.length > 0 && Object.keys(localMarketData.value).length === 0) {
                         triggerPriceUpdate();
+                    }
+                }, (error) => {
+                    // 這裡可以抓到權限錯誤
+                    console.error("Firebase 讀取錯誤:", error);
+                    if(error.code === 'permission-denied') {
+                        alert("⚠️ 讀取失敗：權限不足。\n\n請到 Firebase Console > Firestore > Rules\n將 allow read, write: if false; 改為 if true;");
                     }
                 });
 
@@ -214,30 +219,22 @@
                 });
             });
 
-            // 🔥 核心：抓取真實股價 (Finnhub API)
             const triggerPriceUpdate = async () => {
                 if (stocks.value.length === 0) return;
-                if (!FINNHUB_KEY || FINNHUB_KEY === "YOUR_FINNHUB_KEY_HERE") {
-                    alert("請先在程式碼中填入 Finnhub API Key 才能抓取真實股價！");
+                if (!FINNHUB_KEY || FINNHUB_KEY.includes("您的")) {
+                    console.warn("未設定 Finnhub Key");
                     return;
                 }
 
                 isUpdatingPrices.value = true;
-
-                // 使用 Promise.all 同時發送請求
                 const promises = stocks.value.map(async (stock) => {
                     try {
                         const symbol = stock.code.toUpperCase();
                         const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
                         const data = await response.json();
                         
-                        // data.c 是當前價格 (Current Price)
                         if (data.c) {
-                            localMarketData.value[stock.id] = {
-                                price: data.c,
-                                time: new Date()
-                            };
-                            // 更新畫面上的數字
+                            localMarketData.value[stock.id] = { price: data.c, time: new Date() };
                             stock.currentPrice = data.c;
                             stock.lastUpdate = new Date();
                         }
@@ -245,24 +242,36 @@
                         console.error(`抓取 ${stock.code} 失敗`, e);
                     }
                 });
-
                 await Promise.all(promises);
                 isUpdatingPrices.value = false;
             };
 
             const confirmAddStock = async () => {
                 if (!newStock.value.code || !newStock.value.cost) return alert("請完整填寫");
+                
+                isSaving.value = true; // 開啟載入狀態
+
                 try {
                     await addDoc(collection(db, "stocks"), {
                         code: newStock.value.code.toUpperCase(),
                         cost: parseFloat(newStock.value.cost),
                         createdAt: serverTimestamp()
                     });
+                    
+                    // 成功後才執行這些
                     newStock.value = { code: '', cost: '' };
                     showAddModal.value = false;
-                    setTimeout(triggerPriceUpdate, 500); // 新增後自動更新價格
+                    setTimeout(triggerPriceUpdate, 500); 
+
                 } catch (e) {
-                    alert("新增失敗: " + e.message);
+                    console.error("新增失敗:", e);
+                    if (e.code === 'permission-denied') {
+                        alert("❌ 新增失敗：權限被拒絕。\n\n您必須到 Firebase Console 修改 Rules (規則) 為 true。");
+                    } else {
+                        alert("新增失敗: " + e.message);
+                    }
+                } finally {
+                    isSaving.value = false; // 無論成功失敗都關閉載入狀態
                 }
             };
 
@@ -280,24 +289,21 @@
 
             const toggleAdmin = () => {
                 if (isAdmin.value) isAdmin.value = false;
-                else if (prompt("密碼") === "888") isAdmin.value = true;
+                else if (prompt("密碼") === "tiktok") isAdmin.value = true;
             };
 
-            // 計算 %
             const getPnLPercent = (stock) => {
                 const cur = stock.currentPrice || stock.cost;
                 const pnl = ((cur - stock.cost) / stock.cost) * 100;
                 return (pnl > 0 ? "+" : "") + pnl.toFixed(2);
             };
 
-            // 計算實際金額差異
             const getPnLValue = (stock) => {
                 const cur = stock.currentPrice || stock.cost;
                 const diff = cur - stock.cost;
                 return (diff > 0 ? "+" : "") + diff.toFixed(2);
             };
 
-            // 美股顏色邏輯：綠漲紅跌
             const getPnLClass = (stock, type) => {
                 const cur = stock.currentPrice || stock.cost;
                 const isUp = cur >= stock.cost;
@@ -311,7 +317,7 @@
             };
 
             return {
-                isAdmin, showAddModal, isUpdatingPrices, dbConnected,
+                isAdmin, showAddModal, isUpdatingPrices, dbConnected, isSaving,
                 stocks, notices, newStock,
                 toggleAdmin, confirmAddStock, removeStock, addNotice, removeNotice,
                 triggerPriceUpdate, getPnLPercent, getPnLClass, getPnLValue, formatTime
