@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT投資組合看板</title>
+    <title>GPT投资看板</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -14,127 +14,76 @@
     <style>
         [v-cloak] { display: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        body { background-color: #f3f4f6; font-family: -apple-system, sans-serif; }
-        .app-container { max-width: 480px; margin: 0 auto; background-color: #ffffff; min-height: 100vh; position: relative; display: flex; flex-direction: column; }
+        body { background-color: #f3f4f6; font-family: sans-serif; }
+        .app-container { max-width: 480px; margin: 0 auto; background-color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
 
 <div id="app" class="app-container" v-cloak>
     
-    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-100 px-5 py-4 flex justify-between items-center">
+    <header class="sticky top-0 z-40 bg-white/95 border-b border-gray-100 px-5 py-4 flex justify-between items-center">
         <div>
-            <h1 class="text-xl font-bold text-gray-800">GPT投資組合看板</h1>
-            <p v-if="configError" class="text-xs text-red-500 font-bold animate-pulse">● 系統設定錯誤</p>
-            <p v-else-if="isUpdating" class="text-xs text-orange-500 font-bold animate-pulse">● 正在更新股價...</p>
-            <p v-else class="text-xs text-green-600 font-bold">● 系統正常</p>
+            <h1 class="text-xl font-bold text-gray-800">GPT的持仓</h1>
+            <p v-if="statusMsg" class="text-xs font-bold animate-pulse" :class="statusColor">
+                ● {{ statusMsg }}
+            </p>
+            <p v-else class="text-xs text-gray-400">● 待命</p>
         </div>
-        
-        <button @click="toggleLoginModal" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 transition">
-            <i :class="isAdmin ? 'fa-solid fa-user-shield text-indigo-600' : 'fa-solid fa-lock text-gray-400'"></i>
-        </button>
+        <div class="flex gap-2">
+            <button @click="forceUpdate" class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <i class="fa-solid fa-rotate"></i>
+            </button>
+            <button @click="toggleLogin" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center">
+                <i :class="isAdmin ? 'fa-solid fa-user-shield text-indigo-600' : 'fa-solid fa-lock text-gray-400'"></i>
+            </button>
+        </div>
     </header>
 
-    <main class="flex-1 px-5 py-6 overflow-y-auto no-scrollbar pb-32">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-gray-800 text-lg">持倉明細</h3>
-            
-            <div class="flex items-center gap-2">
-                <span v-if="lastUpdated" class="text-[10px] text-gray-400">更新於: {{ lastUpdated }}</span>
-                <button v-if="isAdmin" @click="openModal()" class="bg-black text-white text-xs font-bold hover:bg-gray-800 px-3 py-1.5 rounded-lg transition">
-                    <i class="fa-solid fa-plus mr-1"></i>新增
-                </button>
-            </div>
-        </div>
-
-        <div v-if="loading" class="py-10 text-center">
-            <i class="fa-solid fa-circle-notch fa-spin text-gray-300 text-2xl"></i>
-        </div>
-
-        <div v-if="!loading && stocks.length === 0" class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-            <p class="text-gray-400 mb-2">暫無資料</p>
-            <p class="text-xs text-gray-400">請登入管理員新增股票</p>
-        </div>
-
-        <div class="space-y-3">
-            <div v-for="stock in stocks" :key="stock.id" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm relative group transition hover:shadow-md">
-                
-                <div v-if="isAdmin" class="absolute top-3 right-3 flex gap-2">
-                    <button @click="openModal(stock)" class="w-7 h-7 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
-                        <i class="fa-solid fa-pen text-[10px]"></i>
-                    </button>
-                    <button @click="deleteStock(stock.id)" class="w-7 h-7 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 transition">
-                        <i class="fa-solid fa-trash text-[10px]"></i>
-                    </button>
+    <main class="flex-1 px-5 py-6 pb-40">
+        <div v-if="loading" class="text-center py-10"><i class="fa-solid fa-spinner fa-spin text-2xl text-gray-300"></i></div>
+        
+        <div v-else class="space-y-3">
+            <div v-for="stock in stocks" :key="stock.id" class="bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative">
+                <div v-if="isAdmin" class="absolute top-2 right-2 flex gap-1">
+                    <button @click="openModal(stock)" class="p-1 text-gray-300 hover:text-indigo-500"><i class="fa-solid fa-pen"></i></button>
+                    <button @click="deleteStock(stock.id)" class="p-1 text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
                 </div>
-
                 <div class="flex justify-between items-center">
                     <div>
-                        <span class="block text-xl font-black text-gray-800 tracking-tight">{{ stock.symbol }}</span>
-                        <span class="text-xs text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">成本 ${{ stock.cost }}</span>
+                        <span class="block text-xl font-black text-gray-800">{{ stock.symbol }}</span>
+                        <span class="text-xs text-gray-400">成本 ${{ stock.cost }}</span>
                     </div>
-                    
                     <div class="text-right">
-                        <div class="text-2xl font-bold text-gray-800 flex items-center justify-end gap-2">
-                            ${{ stock.current }}
-                        </div>
+                        <div class="text-2xl font-bold text-gray-800">${{ stock.current }}</div>
                         <span class="text-xs font-bold" :class="getStockColor(stock)">
                             {{ getProfitPercent(stock) }}%
                         </span>
                     </div>
                 </div>
             </div>
+            
+            <button v-if="isAdmin" @click="openModal()" class="w-full py-3 bg-gray-50 text-gray-400 rounded-xl text-sm font-bold mt-4 border border-dashed border-gray-300">
+                + 新增股票
+            </button>
+        </div>
+
+        <div class="mt-8 p-3 bg-gray-900 rounded-lg text-xs font-mono text-green-400 overflow-hidden">
+            <p class="text-gray-500 mb-1 border-b border-gray-700 pb-1">SYSTEM LOGS:</p>
+            <div class="max-h-32 overflow-y-auto space-y-1">
+                <div v-for="(log, i) in logs" :key="i">> {{ log }}</div>
+            </div>
         </div>
     </main>
 
-    <div class="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-6 z-30">
-        <div class="flex justify-between items-center mb-3">
-            <h3 class="font-bold text-gray-800 flex items-center gap-2 text-sm">
-                <i class="fa-solid fa-bullhorn text-orange-500"></i> GPT投资公告
-            </h3>
-            <button v-if="isAdmin" @click="addAnnouncementPrompt" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition">
-                <i class="fa-solid fa-plus"></i>
-            </button>
-        </div>
-        <div class="space-y-2 max-h-24 overflow-y-auto no-scrollbar">
-            <div v-if="announcements.length === 0" class="text-xs text-gray-400 italic">無最新GPT投资公告</div>
-            <div v-for="(msg, index) in announcements" :key="index" class="text-xs text-gray-600 bg-orange-50 p-2.5 rounded-lg flex justify-between items-start">
-                <span>{{ msg }}</span>
-                <button v-if="isAdmin" @click="deleteAnnouncement(index)" class="text-gray-400 hover:text-red-500 ml-2">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div v-if="showLoginModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
-            <h3 class="font-bold text-gray-800 mb-4">管理員登入</h3>
-            <input v-model="passwordInput" type="password" placeholder="密碼" class="w-full bg-gray-100 rounded-xl px-4 py-3 mb-4 text-center outline-none focus:ring-2 focus:ring-indigo-500">
+    <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-xs">
+            <h3 class="font-bold mb-4">编辑/新增</h3>
+            <input v-model="form.symbol" placeholder="代码 (如 TSLA)" class="w-full bg-gray-50 p-3 rounded-lg mb-2 uppercase font-bold">
+            <input v-model.number="form.cost" type="number" placeholder="成本价" class="w-full bg-gray-50 p-3 rounded-lg mb-4">
             <div class="flex gap-2">
-                <button @click="showLoginModal = false" class="flex-1 py-3 text-gray-500 text-sm font-bold bg-gray-50 rounded-xl">取消</button>
-                <button @click="login" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">確認</button>
-            </div>
-        </div>
-    </div>
-
-    <div v-if="showEditModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">{{ isEditing ? '編輯持倉' : '新增持倉' }}</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">股票代號</label>
-                    <input v-model="form.symbol" type="text" placeholder="例如: AAPL" class="w-full bg-gray-50 rounded-xl px-4 py-3 text-gray-800 font-bold outline-none uppercase focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1">平均成本</label>
-                    <input v-model.number="form.cost" type="number" step="0.01" class="w-full bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-            </div>
-            <div class="flex gap-3 mt-6">
-                <button @click="showEditModal = false" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">取消</button>
-                <button @click="saveStock" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">儲存</button>
+                <button @click="showEditModal=false" class="flex-1 py-2 bg-gray-100 rounded-lg">取消</button>
+                <button @click="saveStock" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg">保存</button>
             </div>
         </div>
     </div>
@@ -142,9 +91,7 @@
 </div>
 
 <script>
-// =========================================
-// 🔴 設定區：請修改這裡 🔴
-// =========================================
+// 🔴 请替换你的配置 🔴
 const firebaseConfig = {
   apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
   authDomain: "stock-app-1f470.firebaseapp.com",
@@ -155,193 +102,160 @@ const firebaseConfig = {
   appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
 };
 
-const ADMIN_PASSWORD = "tiktok";
-const CACHE_DURATION = 60 * 1000; // 緩存時間：60秒 (防止頻繁刷新)
-// =========================================
-
 const { createApp, ref, onMounted } = Vue;
 
 createApp({
     setup() {
         const stocks = ref([]);
-        const announcements = ref([]);
+        const logs = ref(["系统初始化..."]);
         const loading = ref(true);
-        const configError = ref(false);
-        const isAdmin = ref(false);
-        const showLoginModal = ref(false);
+        const isAdmin = ref(localStorage.getItem('isAdmin') === 'true');
         const showEditModal = ref(false);
-        const passwordInput = ref("");
-        const isEditing = ref(false);
-        const isUpdating = ref(false);
-        const lastUpdated = ref("");
-        const lastTimestamp = ref(0);
-        const form = ref({ id: null, symbol: '', cost: 0, current: 0 });
-
+        const form = ref({});
+        const statusMsg = ref("");
+        const statusColor = ref("text-gray-500");
+        
+        // 状态变量
         let db = null;
+        let lastTimestamp = 0;
+        let dataReady = { stocks: false, time: false };
+
+        const addLog = (msg) => {
+            const time = new Date().toLocaleTimeString();
+            logs.value.unshift(`[${time}] ${msg}`);
+        };
+
+        const setStatus = (msg, type = 'normal') => {
+            statusMsg.value = msg;
+            if(type === 'error') statusColor.value = 'text-red-500';
+            else if(type === 'success') statusColor.value = 'text-green-500';
+            else statusColor.value = 'text-orange-500';
+        };
 
         onMounted(() => {
-            if (firebaseConfig.apiKey === "YOUR_API_KEY") {
-                configError.value = true;
-                loading.value = false;
-                return; 
-            }
-
             try {
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                    addLog("错误: API Config 未设置");
+                    return;
+                }
+                firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
                 
-                // 1. 監聽股票數據
-                db.ref('stocks').on('value', (snapshot) => {
-                    const data = snapshot.val();
+                // 监听股票
+                db.ref('stocks').on('value', (snap) => {
+                    const data = snap.val();
                     stocks.value = data ? Object.values(data) : [];
                     loading.value = false;
-                    
-                    // 資料載入後，嘗試自動更新
-                    checkAutoUpdate();
+                    dataReady.stocks = true;
+                    addLog(`加载股票数据: ${stocks.value.length} 支`);
+                    tryAutoUpdate();
+                }, (err) => {
+                    addLog(`Firebase 读取失败: ${err.code}`);
+                    setStatus("数据库权限错误", "error");
                 });
 
-                db.ref('announcements').on('value', (s) => announcements.value = s.val() || []);
-                
-                // 2. 讀取上次更新時間戳
-                db.ref('lastUpdateTimestamp').on('value', (s) => {
-                    lastTimestamp.value = s.val() || 0;
-                });
-                
-                db.ref('lastUpdatedString').on('value', (s) => {
-                    lastUpdated.value = s.val() || "";
+                // 监听上次更新时间
+                db.ref('lastUpdateTimestamp').on('value', (snap) => {
+                    lastTimestamp = snap.val() || 0;
+                    dataReady.time = true;
+                    addLog(`上次更新: ${new Date(lastTimestamp).toLocaleTimeString()}`);
+                    tryAutoUpdate();
                 });
 
             } catch (e) {
-                alert("Firebase 初始化失敗");
-                loading.value = false;
+                addLog(`初始化崩溃: ${e.message}`);
             }
-
-            if(localStorage.getItem('isAdmin') === 'true') isAdmin.value = true;
         });
 
-        // --- 自動更新邏輯 ---
-        const checkAutoUpdate = () => {
-            // 如果正在更新，或沒有股票資料，就跳過
-            if (isUpdating.value || stocks.value.length === 0) return;
+        // 尝试自动更新
+        const tryAutoUpdate = () => {
+            if (!dataReady.stocks || !dataReady.time) return;
+            if (stocks.value.length === 0) return;
 
             const now = Date.now();
-            // 如果 (現在時間 - 上次更新時間) > 60秒，則執行更新
-            if (now - lastTimestamp.value > CACHE_DURATION) {
-                console.log("資料過期，執行自動更新...");
-                updateAllPrices(now);
-            } else {
-                console.log("資料在緩存時間內，跳過更新。");
-            }
-        };
-
-        const fetchPrice = async (symbol) => {
-            try {
-                // 使用 Proxy 請求 Yahoo Finance
-                const proxyUrl = "https://corsproxy.io/?";
-                const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d`;
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-                const data = await response.json();
-                return data.chart.result[0].meta.regularMarketPrice;
-            } catch (error) {
-                console.error(`抓取 ${symbol} 失敗`, error);
-                return null;
-            }
-        };
-
-        const updateAllPrices = async (currentTime) => {
-            isUpdating.value = true;
+            const diff = (now - lastTimestamp) / 1000;
             
+            addLog(`检查更新: 距上次 ${diff.toFixed(0)} 秒`);
+
+            if (diff > 60) { // 超过 60 秒
+                addLog("数据过期，开始自动更新...");
+                runUpdate();
+            } else {
+                addLog("数据新鲜，跳过更新");
+                setStatus("数据已是最新", "success");
+            }
+        };
+
+        // 核心更新逻辑
+        const runUpdate = async () => {
+            setStatus("正在更新股价...", "loading");
             const updates = {};
-            let successCount = 0;
+            let success = 0;
 
-            // 平行處理所有請求加快速度
-            const promises = stocks.value.map(async (stock) => {
-                const price = await fetchPrice(stock.symbol);
-                if (price) {
-                    updates[`stocks/${stock.id}/current`] = price;
-                    successCount++;
+            for (const stock of stocks.value) {
+                try {
+                    // 使用 corsproxy.io
+                    const url = `https://corsproxy.io/?` + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}?interval=1d`);
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    
+                    const data = await res.json();
+                    const price = data.chart.result[0].meta.regularMarketPrice;
+                    
+                    if (price) {
+                        updates[`stocks/${stock.id}/current`] = price;
+                        success++;
+                        addLog(`${stock.symbol} -> $${price}`);
+                    }
+                } catch (e) {
+                    addLog(`❌ ${stock.symbol} 失败: ${e.message}`);
                 }
-            });
-
-            await Promise.all(promises);
-
-            // 準備時間字串
-            const nowObj = new Date(currentTime);
-            const timeString = `${nowObj.getMonth()+1}/${nowObj.getDate()} ${nowObj.getHours()}:${nowObj.getMinutes().toString().padStart(2, '0')}`;
-            
-            updates['lastUpdateTimestamp'] = currentTime;
-            updates['lastUpdatedString'] = timeString;
-
-            // 寫入 Firebase
-            if (successCount > 0) {
-                await db.ref().update(updates);
             }
-            
-            isUpdating.value = false;
-        };
-        // ------------------
 
-        // 其他基礎功能
-        const toggleLoginModal = () => {
-            if (isAdmin.value) {
-                if(confirm("登出?")) {
-                    isAdmin.value = false;
-                    localStorage.removeItem('isAdmin');
+            if (success > 0) {
+                updates['lastUpdateTimestamp'] = firebase.database.ServerValue.TIMESTAMP;
+                updates['lastUpdatedString'] = new Date().toLocaleString();
+                
+                try {
+                    await db.ref().update(updates);
+                    addLog(`成功更新 ${success} 支股票并写入 DB`);
+                    setStatus("更新完成", "success");
+                } catch (e) {
+                    addLog(`❌ 写入数据库失败: ${e.message}`);
+                    setStatus("数据库写入拒绝", "error");
+                    alert("更新失败：请检查 Firebase Rules 是否设为 read/write: true");
                 }
             } else {
-                showLoginModal.value = true;
+                addLog("没有获取到任何价格，可能是网络问题");
+                setStatus("更新失败", "error");
             }
         };
 
-        const login = () => {
-            if (passwordInput.value === ADMIN_PASSWORD) {
-                isAdmin.value = true;
-                localStorage.setItem('isAdmin', 'true');
-                showLoginModal.value = false;
-            } else {
-                alert("密碼錯誤");
-            }
+        // UI 辅助功能
+        const forceUpdate = () => { addLog("手动强制更新..."); runUpdate(); };
+        const toggleLogin = () => { 
+            if(isAdmin.value) { isAdmin.value=false; localStorage.removeItem('isAdmin'); }
+            else { const p = prompt("密码"); if(p==="tiktok") { isAdmin.value=true; localStorage.setItem('isAdmin','true'); } }
         };
-
-        const openModal = (stock = null) => {
-            if (stock) {
-                isEditing.value = true;
-                form.value = { ...stock };
-            } else {
-                isEditing.value = false;
-                form.value = { id: null, symbol: '', cost: '', current: 0 };
-            }
-            showEditModal.value = true;
+        const openModal = (s) => { 
+            form.value = s ? {...s} : {id:Date.now(), symbol:'', cost:0, current:0}; 
+            showEditModal.value=true; 
         };
-
         const saveStock = () => {
-            if (!db) return;
-            if (!form.value.symbol) return alert("請輸入代號");
-            const newStock = {
-                id: form.value.id || Date.now(),
-                symbol: form.value.symbol.toUpperCase(),
-                cost: Number(form.value.cost),
-                current: Number(form.value.current) // 新增時使用手填或0，隨後會被自動更新覆蓋
-            };
-            db.ref('stocks/' + newStock.id).set(newStock).then(() => showEditModal.value = false);
+            if(!form.value.symbol) return;
+            form.value.symbol = form.value.symbol.toUpperCase();
+            db.ref('stocks/'+form.value.id).set(form.value).then(()=>{
+                showEditModal.value=false; addLog("股票已保存");
+            });
         };
-
-        const deleteStock = (id) => { if(confirm("刪除?")) db.ref('stocks/' + id).remove(); };
-        const addAnnouncementPrompt = () => {
-            const text = prompt("公告:"); if (text) db.ref('announcements').set([text, ...announcements.value]);
-        };
-        const deleteAnnouncement = (idx) => {
-            const nav = [...announcements.value]; nav.splice(idx, 1); db.ref('announcements').set(nav);
-        };
-        const getStockColor = (s) => (s.current >= s.cost ? 'text-green-500' : 'text-red-500');
+        const deleteStock = (id) => { if(confirm("删?")) db.ref('stocks/'+id).remove(); };
+        const getStockColor = (s) => s.current >= s.cost ? 'text-green-500' : 'text-red-500';
         const getProfitPercent = (s) => s.current === 0 ? '0.00' : ((s.current - s.cost) / s.cost * 100).toFixed(2);
 
-        return {
-            isAdmin, loading, configError, stocks, announcements, 
-            showLoginModal, showEditModal, passwordInput, form, isEditing, 
-            isUpdating, lastUpdated,
-            toggleLoginModal, login, openModal, saveStock, deleteStock, 
-            addAnnouncementPrompt, deleteAnnouncement, getStockColor, getProfitPercent
+        return { 
+            stocks, logs, loading, isAdmin, showEditModal, form, statusMsg, statusColor,
+            openModal, saveStock, deleteStock, getStockColor, getProfitPercent, 
+            forceUpdate, toggleLogin 
         };
     }
 }).mount('#app');
