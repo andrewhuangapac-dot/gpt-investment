@@ -12,11 +12,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     
     <style>
-        [v-cloak] { display: none; } /* 防止 Vue 載入前畫面亂跳 */
+        [v-cloak] { display: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         body { background-color: #f3f4f6; font-family: -apple-system, sans-serif; }
         .app-container { max-width: 480px; margin: 0 auto; background-color: #ffffff; min-height: 100vh; position: relative; display: flex; flex-direction: column; }
+        .spin-fast { animation: fa-spin 1s infinite linear; }
     </style>
 </head>
 <body>
@@ -26,79 +27,67 @@
     <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-100 px-5 py-4 flex justify-between items-center">
         <div>
             <h1 class="text-xl font-bold text-gray-800">投資組合看板</h1>
-            <p v-if="configError" class="text-xs text-red-500 font-bold animate-pulse">● 系統設定錯誤 (見下方)</p>
-            <p v-else-if="isAdmin" class="text-xs text-indigo-600 font-bold">● 管理員模式 (可編輯)</p>
-            <p v-else class="text-xs text-gray-500">● 訪客模式 (唯讀)</p>
+            <p v-if="configError" class="text-xs text-red-500 font-bold animate-pulse">● 系統設定錯誤</p>
+            <p v-else-if="isAdmin" class="text-xs text-indigo-600 font-bold">● 管理員模式</p>
+            <p v-else class="text-xs text-gray-500">● 訪客模式</p>
         </div>
         
-        <button @click="toggleLoginModal" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 transition">
-            <i :class="isAdmin ? 'fa-solid fa-user-shield text-indigo-600' : 'fa-solid fa-lock text-gray-400'"></i>
-        </button>
+        <div class="flex gap-2">
+            <button v-if="isAdmin" @click="updateAllPrices" :disabled="isUpdating" class="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition relative">
+                <i class="fa-solid fa-rotate" :class="{'spin-fast': isUpdating}"></i>
+            </button>
+            
+            <button @click="toggleLoginModal" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 transition">
+                <i :class="isAdmin ? 'fa-solid fa-user-shield text-indigo-600' : 'fa-solid fa-lock text-gray-400'"></i>
+            </button>
+        </div>
     </header>
 
-    <div class="px-5 pt-6 pb-2">
-        <div class="bg-gradient-to-br from-indigo-900 to-slate-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-200 relative overflow-hidden">
-            <p class="text-sm text-indigo-200 mb-1">總預估損益</p>
-            <div class="flex items-baseline gap-2">
-                <h2 class="text-4xl font-bold tracking-tight">{{ formatCurrency(totalProfit) }}</h2>
-            </div>
-            <div class="mt-2 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium"
-                :class="totalProfit >= 0 ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'">
-                {{ totalProfit >= 0 ? '+' : '' }}{{ totalProfitPercentage }}%
-            </div>
-
-            <div v-if="loading" class="absolute inset-0 bg-slate-900/90 flex items-center justify-center z-10">
-                <div class="text-center">
-                    <i class="fa-solid fa-circle-notch fa-spin text-white text-3xl mb-2"></i>
-                    <p class="text-xs text-gray-400">資料讀取中...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <main class="flex-1 px-5 py-4 overflow-y-auto no-scrollbar pb-32">
+    <main class="flex-1 px-5 py-6 overflow-y-auto no-scrollbar pb-32">
         <div class="flex justify-between items-center mb-4">
             <h3 class="font-bold text-gray-800 text-lg">持倉明細</h3>
-            <button v-if="isAdmin" @click="openModal()" class="bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-200">
-                <i class="fa-solid fa-plus mr-1"></i>新增
-            </button>
+            
+            <div class="flex items-center gap-2">
+                <span v-if="lastUpdated" class="text-[10px] text-gray-400">更新於: {{ lastUpdated }}</span>
+                <button v-if="isAdmin" @click="openModal()" class="bg-black text-white text-xs font-bold hover:bg-gray-800 px-3 py-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-plus mr-1"></i>新增
+                </button>
+            </div>
+        </div>
+
+        <div v-if="loading" class="py-10 text-center">
+            <i class="fa-solid fa-circle-notch fa-spin text-gray-300 text-2xl"></i>
         </div>
 
         <div v-if="!loading && stocks.length === 0" class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
             <p class="text-gray-400 mb-2">暫無資料</p>
-            <p v-if="!isAdmin" class="text-xs text-gray-400">等待管理員更新...</p>
-            <button v-if="isAdmin" @click="openModal()" class="text-indigo-600 text-sm font-bold mt-2">立即新增一筆</button>
+            <button v-if="isAdmin" @click="openModal()" class="text-indigo-600 text-sm font-bold mt-2">立即新增</button>
         </div>
 
         <div class="space-y-3">
             <div v-for="stock in stocks" :key="stock.id" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm relative group transition hover:shadow-md">
+                
                 <div v-if="isAdmin" class="absolute top-3 right-3 flex gap-2">
-                    <button @click="openModal(stock)" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition">
-                        <i class="fa-solid fa-pen text-xs"></i>
+                    <button @click="openModal(stock)" class="w-7 h-7 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
+                        <i class="fa-solid fa-pen text-[10px]"></i>
                     </button>
-                    <button @click="deleteStock(stock.id)" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-600 transition">
-                        <i class="fa-solid fa-trash text-xs"></i>
+                    <button @click="deleteStock(stock.id)" class="w-7 h-7 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 transition">
+                        <i class="fa-solid fa-trash text-[10px]"></i>
                     </button>
                 </div>
 
-                <div class="flex justify-between items-start mb-2 pr-16">
+                <div class="flex justify-between items-center">
                     <div>
-                        <span class="block text-xl font-black text-gray-800">{{ stock.symbol }}</span>
-                        <span class="text-xs text-gray-400 font-medium">成本 ${{ stock.cost }}</span>
+                        <span class="block text-xl font-black text-gray-800 tracking-tight">{{ stock.symbol }}</span>
+                        <span class="text-xs text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">成本 ${{ stock.cost }}</span>
                     </div>
-                </div>
-                
-                <div class="flex justify-between items-end">
-                    <div>
-                         <span class="text-xs text-gray-400 block mb-1">現價</span>
-                         <span class="text-lg font-bold text-gray-800">${{ stock.current }}</span>
-                    </div>
+                    
                     <div class="text-right">
-                        <span class="block text-2xl font-bold" :class="getStockColor(stock)">
+                        <div class="text-2xl font-bold text-gray-800 flex items-center justify-end gap-2">
+                            ${{ stock.current }}
+                        </div>
+                        <span class="text-xs font-bold" :class="getStockColor(stock)">
                             {{ ((stock.current - stock.cost) / stock.cost * 100).toFixed(2) }}%
-                        </span>
-                        <span class="text-xs font-medium" :class="getStockColor(stock)">
-                            {{ formatCurrency(stock.current - stock.cost) }}
                         </span>
                     </div>
                 </div>
@@ -109,7 +98,7 @@
     <div class="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-6 z-30">
         <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-gray-800 flex items-center gap-2 text-sm">
-                <i class="fa-solid fa-bullhorn text-orange-500"></i> 最新公告
+                <i class="fa-solid fa-bullhorn text-orange-500"></i> 公告
             </h3>
             <button v-if="isAdmin" @click="addAnnouncementPrompt" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition">
                 <i class="fa-solid fa-plus"></i>
@@ -128,38 +117,35 @@
 
     <div v-if="showLoginModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
-            <i class="fa-solid fa-lock text-3xl text-indigo-600 mb-4"></i>
             <h3 class="font-bold text-gray-800 mb-4">管理員登入</h3>
-            <input v-model="passwordInput" type="password" placeholder="輸入密碼" class="w-full bg-gray-100 rounded-xl px-4 py-3 mb-4 text-center outline-none focus:ring-2 focus:ring-indigo-500">
+            <input v-model="passwordInput" type="password" placeholder="密碼" class="w-full bg-gray-100 rounded-xl px-4 py-3 mb-4 text-center outline-none focus:ring-2 focus:ring-indigo-500">
             <div class="flex gap-2">
-                <button @click="showLoginModal = false" class="flex-1 py-3 text-gray-500 text-sm font-bold hover:bg-gray-50 rounded-xl">取消</button>
-                <button @click="login" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">登入</button>
+                <button @click="showLoginModal = false" class="flex-1 py-3 text-gray-500 text-sm font-bold bg-gray-50 rounded-xl">取消</button>
+                <button @click="login" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">確認</button>
             </div>
         </div>
     </div>
 
     <div v-if="showEditModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">{{ isEditing ? '編輯股票' : '新增股票' }}</h3>
+            <h3 class="text-lg font-bold text-gray-800 mb-4">{{ isEditing ? '編輯持倉' : '新增持倉' }}</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">代號 (Symbol)</label>
-                    <input v-model="form.symbol" type="text" placeholder="e.g. AAPL" class="w-full bg-gray-50 rounded-xl px-4 py-3 text-gray-800 font-bold outline-none uppercase focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">股票代號 (美股)</label>
+                    <input v-model="form.symbol" type="text" placeholder="例如: AAPL" class="w-full bg-gray-50 rounded-xl px-4 py-3 text-gray-800 font-bold outline-none uppercase focus:ring-2 focus:ring-indigo-500">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">平均成本</label>
-                        <input v-model.number="form.cost" type="number" step="0.01" class="w-full bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1">當前價格</label>
-                        <input v-model.number="form.current" type="number" step="0.01" class="w-full bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1">平均成本</label>
+                    <input v-model.number="form.cost" type="number" step="0.01" class="w-full bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                     <label class="block text-xs font-bold text-gray-400 mb-1">現價 (可留空，稍後自動更新)</label>
+                     <input v-model.number="form.current" type="number" step="0.01" class="w-full bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
             <div class="flex gap-3 mt-6">
-                <button @click="showEditModal = false" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200">取消</button>
-                <button @click="saveStock" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700">儲存</button>
+                <button @click="showEditModal = false" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">取消</button>
+                <button @click="saveStock" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">儲存</button>
             </div>
         </div>
     </div>
@@ -168,10 +154,9 @@
 
 <script>
 // =========================================
-// 🔴 關鍵區塊：請修改這裡 🔴
+// 🔴 設定區：請修改這裡 🔴
 // =========================================
 const firebaseConfig = {
-    // 請將下面這些字串替換成你的 Firebase 設定
   apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
   authDomain: "stock-app-1f470.firebaseapp.com",
   databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -181,72 +166,112 @@ const firebaseConfig = {
   appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
 };
 
-const ADMIN_PASSWORD = "888"; // 管理員密碼
+const ADMIN_PASSWORD = "tiktok"; 
 // =========================================
 
-const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, onMounted } = Vue;
 
 createApp({
     setup() {
-        // 狀態變數
         const stocks = ref([]);
         const announcements = ref([]);
         const loading = ref(true);
-        const configError = ref(false); // 新增錯誤偵測
+        const configError = ref(false);
         const isAdmin = ref(false);
         const showLoginModal = ref(false);
         const showEditModal = ref(false);
         const passwordInput = ref("");
         const isEditing = ref(false);
+        const isUpdating = ref(false); // 更新狀態鎖
+        const lastUpdated = ref(""); // 最後更新時間
         const form = ref({ id: null, symbol: '', cost: 0, current: 0 });
 
         let db = null;
 
         onMounted(() => {
-            // 1. 安全檢查：確認使用者有修改 Config
-            if (firebaseConfig.apiKey === "YOUR_API_KEY" || firebaseConfig.databaseURL.includes("YOUR_PROJECT")) {
-                alert("⚠️ 設定錯誤！\n\n請打開 HTML 檔案，將 'firebaseConfig' 替換成你自己的 Firebase 設定。");
+            if (firebaseConfig.apiKey === "YOUR_API_KEY") {
                 configError.value = true;
                 loading.value = false;
-                return; // 停止執行
+                return; 
             }
 
-            // 2. 初始化 Firebase
             try {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
                 
-                // 3. 連接資料庫 (Realtime)
                 db.ref('stocks').on('value', (snapshot) => {
                     const data = snapshot.val();
                     stocks.value = data ? Object.values(data) : [];
                     loading.value = false;
-                }, (error) => {
-                    console.error("Firebase Error:", error);
-                    alert("資料庫讀取失敗：\n可能原因：1.沒開測試模式 2.網路問題");
-                    loading.value = false;
                 });
 
-                db.ref('announcements').on('value', (snapshot) => {
-                    announcements.value = snapshot.val() || [];
-                });
+                db.ref('announcements').on('value', (s) => announcements.value = s.val() || []);
+                
+                // 讀取最後更新時間
+                db.ref('lastUpdated').on('value', (s) => lastUpdated.value = s.val() || "");
 
             } catch (e) {
-                console.error(e);
-                alert("Firebase 初始化失敗，請檢查設定碼格式是否正確。");
+                alert("Firebase 初始化失敗");
                 loading.value = false;
             }
 
-            // 自動登入檢查
             if(localStorage.getItem('isAdmin') === 'true') isAdmin.value = true;
         });
 
-        // 登入邏輯
+        // --- 核心功能：抓取 Yahoo Finance 股價 ---
+        const fetchPrice = async (symbol) => {
+            try {
+                // 使用 CORS Proxy 繞過瀏覽器限制
+                const proxyUrl = "https://corsproxy.io/?";
+                const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d`;
+                
+                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const data = await response.json();
+                
+                const price = data.chart.result[0].meta.regularMarketPrice;
+                return price;
+            } catch (error) {
+                console.error(`抓取 ${symbol} 失敗:`, error);
+                return null;
+            }
+        };
+
+        const updateAllPrices = async () => {
+            if (isUpdating.value) return;
+            isUpdating.value = true;
+            
+            const updates = {};
+            let successCount = 0;
+
+            for (const stock of stocks.value) {
+                const price = await fetchPrice(stock.symbol);
+                if (price) {
+                    // 只更新價格，保留其他欄位
+                    updates[`stocks/${stock.id}/current`] = price;
+                    successCount++;
+                }
+            }
+
+            // 更新時間戳記
+            const now = new Date();
+            const timeString = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+            updates['lastUpdated'] = timeString;
+
+            // 寫入 Firebase
+            if (successCount > 0) {
+                await db.ref().update(updates);
+                alert(`更新完成！成功更新 ${successCount} 檔股票價格。`);
+            } else {
+                alert("更新失敗，請檢查網路或代號是否正確。");
+            }
+            
+            isUpdating.value = false;
+        };
+        // ------------------------------------------
+
         const toggleLoginModal = () => {
             if (isAdmin.value) {
-                if(confirm("確定要登出管理員模式？")) {
+                if(confirm("登出管理員？")) {
                     isAdmin.value = false;
                     localStorage.removeItem('isAdmin');
                 }
@@ -266,14 +291,13 @@ createApp({
             }
         };
 
-        // 股票 CRUD
         const openModal = (stock = null) => {
             if (stock) {
                 isEditing.value = true;
                 form.value = { ...stock };
             } else {
                 isEditing.value = false;
-                form.value = { id: null, symbol: '', cost: '', current: '' };
+                form.value = { id: null, symbol: '', cost: '', current: 0 };
             }
             showEditModal.value = true;
         };
@@ -290,49 +314,38 @@ createApp({
             };
             
             db.ref('stocks/' + newStock.id).set(newStock)
-                .then(() => showEditModal.value = false)
-                .catch(err => alert("寫入失敗: " + err.message));
+                .then(() => showEditModal.value = false);
         };
 
         const deleteStock = (id) => {
-            if (!db) return;
-            if(confirm("確定刪除?")) db.ref('stocks/' + id).remove();
+            if(confirm("刪除?")) db.ref('stocks/' + id).remove();
         };
 
-        // 公告欄邏輯
         const addAnnouncementPrompt = () => {
-            if (!db) return;
-            const text = prompt("輸入新公告:");
-            if (text) {
-                const newAnnouncements = [text, ...announcements.value];
-                db.ref('announcements').set(newAnnouncements);
+            const text = prompt("公告內容:");
+            if (text) db.ref('announcements').set([text, ...announcements.value]);
+        };
+
+        const deleteAnnouncement = (idx) => {
+            if(confirm("刪除?")) {
+                const nav = [...announcements.value];
+                nav.splice(idx, 1);
+                db.ref('announcements').set(nav);
             }
         };
 
-        const deleteAnnouncement = (index) => {
-            if (!db) return;
-            if(confirm("刪除此公告?")) {
-                const newAnnouncements = [...announcements.value];
-                newAnnouncements.splice(index, 1);
-                db.ref('announcements').set(newAnnouncements);
-            }
+        const getStockColor = (s) => {
+            if (s.current === 0) return 'text-gray-400';
+            return s.current >= s.cost ? 'text-green-500' : 'text-red-500';
         };
-
-        // 計算屬性
-        const totalProfit = computed(() => stocks.value.reduce((acc, s) => acc + (s.current - s.cost), 0));
-        const totalProfitPercentage = computed(() => {
-            const totalCost = stocks.value.reduce((acc, s) => acc + s.cost, 0);
-            return totalCost === 0 ? 0 : ((totalProfit.value / totalCost) * 100).toFixed(2);
-        });
-        const getStockColor = (s) => s.current >= s.cost ? 'text-green-500' : 'text-red-500';
-        const formatCurrency = (val) => (val >= 0 ? '+' : '') + val.toFixed(2);
 
         return {
             isAdmin, loading, configError, stocks, announcements, 
             showLoginModal, showEditModal, passwordInput, form, isEditing, 
-            totalProfit, totalProfitPercentage,
+            isUpdating, lastUpdated,
             toggleLoginModal, login, openModal, saveStock, deleteStock, 
-            addAnnouncementPrompt, deleteAnnouncement, getStockColor, formatCurrency
+            addAnnouncementPrompt, deleteAnnouncement, getStockColor, 
+            updateAllPrices
         };
     }
 }).mount('#app');
