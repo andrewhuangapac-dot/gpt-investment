@@ -313,8 +313,8 @@
                     // 自動清理舊公告
                     const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
                     const snapshot = await getDocs(q);
-                    if (snapshot.size > 5) {
-                        const toDelete = snapshot.docs.slice(5);
+                    if (snapshot.size > 9) {
+                        const toDelete = snapshot.docs.slice(9);
                         for (const d of toDelete) await deleteDoc(d.ref);
                     }
                 } catch(e) { alert("公告失敗: " + e.message); }
