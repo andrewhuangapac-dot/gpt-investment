@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>京阪神親子遊 (v46: 交通詳解版)</title>
+    <title>京阪神親子遊 (v47: 操作手感優化)</title>
     
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,7 +23,7 @@
             font-family: 'Noto Sans TC', sans-serif; 
             background-color: #f1f5f9; 
             -webkit-tap-highlight-color: transparent; 
-            overscroll-behavior-y: none; /* 防止下拉刷新干擾體驗 */
+            overscroll-behavior-y: none;
         }
         
         .app-container { 
@@ -53,10 +53,8 @@
 
         .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
         
-        /* 標籤樣式 */
         .badge-alert { background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; font-weight: bold; }
         
-        /* Uber 專屬樣式 */
         .badge-uber { 
             background: #1f2937; color: #fbbf24; 
             border: 1px solid #000; 
@@ -312,7 +310,7 @@
 
     const { createApp } = Vue;
 
-    // v46: 恢復左右滑動 + 神戶交通詳細 + Day5 8:00出發
+    // v47: 嚴格的水平滑動判定 (防止垂直捲動時誤觸)
     const masterDataVFinal = {
        0: [
            { id: 101, time: '15:30', location: '關西機場 T2', action: '降落', transport_mode: 'transit', coords: [34.4357, 135.2443], alert: '需搭接駁車至 T1' },
@@ -441,9 +439,11 @@
                 markerGroup: null,
                 isLoading: false, loadingText: '讀取中...', progress: 0,
                 
-                // Touch handling variables
+                // Touch handling variables (新增 Y 軸變數)
                 touchStartX: 0,
+                touchStartY: 0,
                 touchEndX: 0,
+                touchEndY: 0,
                 
                 days: [
                     { date: '12/05', weekday: '週五', name: 'Day 1: 大阪', locCoords: {lat: 34.6937, lon: 135.5023}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } },
@@ -647,25 +647,30 @@
             },
             downloadMemories() { alert("旅程結束後可在此下載完整回憶相簿！"); },
             
-            // Touch Swipe Logic
+            // Touch Swipe Logic (v47 Updated: 增加 Y 軸判定，防止上下捲動時誤觸)
             handleTouchStart(e) {
                 this.touchStartX = e.changedTouches[0].screenX;
+                this.touchStartY = e.changedTouches[0].screenY;
             },
             handleTouchEnd(e) {
                 this.touchEndX = e.changedTouches[0].screenX;
+                this.touchEndY = e.changedTouches[0].screenY;
                 this.handleSwipe();
             },
             handleSwipe() {
-                const threshold = 50; // Minimum distance for swipe
-                if (this.touchEndX < this.touchStartX - threshold) {
+                const threshold = 50; // 最小滑動距離
+                const diffX = this.touchEndX - this.touchStartX;
+                const diffY = this.touchEndY - this.touchStartY;
+
+                // 關鍵判定：只有當水平距離大於垂直距離時 (Math.abs(diffX) > Math.abs(diffY))
+                // 才視為「切換日期」，否則視為「上下捲動查看內容」
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
                     // Swipe Left (Next Day)
-                    if (this.currentDay < this.days.length - 1) {
+                    if (diffX < 0 && this.currentDay < this.days.length - 1) {
                         this.changeDay(this.currentDay + 1);
                     }
-                }
-                if (this.touchEndX > this.touchStartX + threshold) {
                     // Swipe Right (Prev Day)
-                    if (this.currentDay > 0) {
+                    if (diffX > 0 && this.currentDay > 0) {
                         this.changeDay(this.currentDay - 1);
                     }
                 }
