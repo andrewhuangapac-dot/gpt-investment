@@ -3,365 +3,644 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT美股看板 Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <title>京阪神親子遊 (v45: 路線與操作優化版)</title>
     
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #0f172a; color: #e2e8f0; }
-        .font-mono { font-family: 'Roboto Mono', monospace; }
-        .nums { font-variant-numeric: tabular-nums; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         
-        /* 漲跌顏色 */
-        .text-up { color: #4ade80; }
-        .text-down { color: #f87171; }
-        .bg-up { background-color: rgba(74, 222, 128, 0.15); }
-        .bg-down { background-color: rgba(248, 113, 113, 0.15); }
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #f1f5f9; 
+            -webkit-tap-highlight-color: transparent; 
+        }
         
-        /* 列表動畫 */
-        .list-enter-active, .list-leave-active { transition: all 0.4s ease; }
-        .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-20px); }
+        .app-container { 
+            max-width: 430px; 
+            margin: 0 auto; 
+            background: #f8fafc; 
+            min-height: 100vh; 
+            position: relative; 
+            box-shadow: 0 0 25px rgba(0,0,0,0.15); 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        .scroll-container::-webkit-scrollbar { display: none; }
+        .scroll-container { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .bg-gradient-brand { background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); }
+
+        .timeline-line { position: absolute; left: 57px; top: 35px; bottom: -20px; width: 2px; background: #e2e8f0; z-index: 0; }
+        .last-item .timeline-line { display: none; }
+        
+        #map { height: 100%; width: 100%; min-height: 300px; z-index: 0; background: #e5e5e5; }
+        
+        .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+        .photo-item { aspect-ratio: 1; border-radius: 12px; overflow: hidden; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; }
+
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+        
+        /* 標籤樣式 */
+        .badge-alert { background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; font-weight: bold; }
+        
+        /* Uber 專屬樣式 */
+        .badge-uber { 
+            background: #1f2937; color: #fbbf24; 
+            border: 1px solid #000; 
+            font-size: 11px; padding: 3px 8px; border-radius: 6px; 
+            display: inline-flex; align-items: center; gap: 4px;
+            margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
 
-<div id="app" class="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl border-x border-slate-800 flex flex-col">
+<div id="app">
+    <div v-if="!isAccessGranted" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-8 text-center shadow-2xl">
+            <div class="mb-6 text-5xl animate-bounce">🔐</div>
+            <h2 class="text-xl font-bold mb-2 text-slate-800">旅程鎖定中</h2>
+            <p class="text-gray-400 text-sm mb-8">請輸入通行碼 (Hint: Alfred)</p>
+            <input type="password" v-model="passcode" class="w-full text-center text-xl bg-slate-50 border-2 border-slate-100 rounded-xl py-3 mb-6 outline-none focus:border-blue-500 transition" placeholder="Passcode">
+            <button @click="checkPasscode" class="w-full bg-gradient-brand text-white py-3.5 rounded-xl font-bold active:scale-95 transition shadow-lg shadow-blue-500/30">開啟旅程</button>
+        </div>
+    </div>
 
-    <header class="bg-slate-900/90 backdrop-blur px-5 py-4 sticky top-0 z-30 border-b border-slate-800">
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold text-white tracking-wide">GPT美股投資</h1>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="w-2 h-2 rounded-full transition-colors duration-500" 
-                          :class="statusColor"></span>
-                    <span class="text-xs text-slate-400 truncate max-w-[150px]">{{ statusMsg }}</span>
+    <div v-else class="app-container">
+        <header class="bg-gradient-brand sticky top-0 z-40 pb-2 flex-none shadow-md">
+            <div class="px-6 pt-12 pb-4 flex justify-between items-end text-white">
+                <div>
+                    <div class="text-[10px] font-bold tracking-[0.2em] opacity-80 mb-1">FAMILY TRIP 2025</div>
+                    <h1 class="text-2xl font-bold tracking-wide">京阪神家族之旅 <span class="text-xl">⛩️</span></h1>
+                </div>
+                <div class="flex gap-3">
+                    <button @click="downloadMemories" class="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-white/30 transition border border-white/10">
+                        <i class="fas fa-cloud-download-alt text-sm"></i>
+                    </button>
+                    <button @click="resetData" class="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-red-500/50 transition border border-white/10">
+                        <i class="fas fa-redo text-sm"></i>
+                    </button>
                 </div>
             </div>
-            
-            <button @click="toggleAdmin" 
-                    class="flex items-center gap-2 px-3 py-1.5 rounded-full transition active:scale-95 border border-transparent"
-                    :class="isAdmin ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'">
-                <span class="material-icons-round text-sm">{{ isAdmin ? 'lock_open' : 'lock' }}</span>
-                <span class="text-xs font-bold">{{ isAdmin ? '管理員' : '訪客' }}</span>
-            </button>
-        </div>
-    </header>
 
-    <div class="px-4 pt-4">
-        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-sm">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
-                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
-                    <span class="material-icons-round text-sm">campaign</span> GPT投資最新公告
-                </h3>
-                <button v-if="isAdmin" @click="addNotice" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-full text-white transition flex items-center gap-1">
-                    <span class="material-icons-round text-xs">edit</span> 發布
-                </button>
+            <div class="flex overflow-x-auto px-4 pb-3 gap-3 scroll-container snap-x">
+                <div v-for="(day, index) in days" :key="index" 
+                     @click="changeDay(index)"
+                     class="snap-center flex-shrink-0 flex flex-col items-center justify-center w-[70px] h-[82px] rounded-2xl transition-all duration-300 cursor-pointer relative overflow-hidden"
+                     :class="currentDay === index ? 'bg-white text-blue-600 shadow-lg translate-y-0.5' : 'bg-white/10 text-white/70 border border-white/10 hover:bg-white/20'">
+                    
+                    <span class="text-[10px] font-medium opacity-80">{{ day.date }}</span>
+                    <span class="text-sm font-bold my-0.5">{{ day.weekday }}</span>
+                    
+                    <div class="mt-1 flex flex-col items-center">
+                        <i :class="[day.weather.icon]" class="text-xs mb-0.5"></i>
+                        <span class="text-[10px] font-bold">
+                            {{ day.weather.temp_high !== '-' ? day.weather.temp_high + '°' : '--' }}
+                        </span>
+                    </div>
+                </div>
             </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto scroll-container relative">
             
-            <div class="space-y-3 min-h-[40px]">
-                <p v-if="notices.length === 0" class="text-xs text-slate-500 text-center py-2">目前無公告</p>
-                <transition-group name="list">
-                    <div v-for="(notice, index) in notices" :key="notice.id" class="relative pl-4 group">
-                        <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-slate-700 group-last:hidden"></div>
-                        <div class="absolute left-[-2px] top-2 w-1.5 h-1.5 rounded-full" :class="index === 0 ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'"></div>
-                        
-                        <div class="flex items-start gap-3 pb-1">
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" 
-                                  :class="index === 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'">
-                                {{ notice.dateStr || 'Now' }}
-                            </span>
-                            <div class="flex-1 flex justify-between items-start">
-                                <p class="text-sm leading-snug break-all" :class="index === 0 ? 'text-white font-medium' : 'text-slate-300'">
-                                    {{ notice.content }}
-                                </p>
-                                <button v-if="isAdmin" @click="removeNotice(notice.id)" class="text-slate-600 hover:text-red-400 ml-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition">
-                                    <span class="material-icons-round text-xs">close</span>
-                                </button>
+            <div v-if="isLoading" class="absolute inset-0 z-30 bg-white/80 backdrop-blur flex flex-col items-center justify-center">
+                <div class="animate-spin text-blue-600 text-3xl mb-3"><i class="fas fa-circle-notch"></i></div>
+                <div class="text-sm text-gray-500 font-medium">{{ loadingText }}</div>
+                <div v-if="progress > 0" class="w-32 h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                    <div class="h-full bg-blue-500 transition-all duration-300" :style="{width: progress + '%'}"></div>
+                </div>
+            </div>
+
+            <div v-if="currentView === 'list'" class="px-5 py-6 pb-28">
+                <div v-if="sortedActivities.length === 0" class="text-center py-20">
+                    <div class="text-6xl mb-4 opacity-20">📝</div>
+                    <p class="text-gray-400">本日尚無行程</p>
+                    <button @click="openModal()" class="mt-6 text-blue-600 text-sm font-bold bg-blue-50 px-6 py-2 rounded-full">立即新增</button>
+                </div>
+
+                <div v-for="(item, idx) in sortedActivities" :key="item.id" 
+                     class="relative pl-[72px] pb-8 group" 
+                     :class="{'last-item': idx === sortedActivities.length - 1}">
+                    
+                    <div class="timeline-line"></div>
+                    
+                    <div class="absolute left-0 top-1 w-[48px] text-xs font-bold text-gray-400 text-right font-mono">{{ item.time }}</div>
+                    
+                    <div class="absolute left-[52px] top-1.5 w-3 h-3 rounded-full border-2 border-slate-50 shadow-sm z-10"
+                         :class="getIconColor(item)"></div>
+
+                    <div @click="openModal(item)" class="bg-white rounded-2xl p-4 card-shadow border border-slate-100 active:scale-[0.99] transition-transform duration-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-slate-800 text-lg leading-tight">{{ getMainName(item.location) }}</h3>
+                            <div class="flex gap-2">
+                                <a v-if="item.coords" :href="generateGoogleLink(item.location, item.location, item.transport_mode)" target="_blank" @click.stop class="w-8 h-8 rounded-full bg-slate-50 text-blue-500 flex items-center justify-center text-xs hover:bg-blue-50 transition border border-slate-100 shadow-sm">
+                                    <i class="fas fa-location-arrow"></i>
+                                </a>
                             </div>
                         </div>
+                        
+                        <p v-if="getSubName(item.location)" class="text-xs text-gray-400 mb-2.5 font-medium">{{ getSubName(item.location) }}</p>
+                        
+                        <div v-if="item.isUber" class="badge-uber">
+                            <i class="fas fa-taxi"></i> 建議搭乘 Uber / 計程車
+                        </div>
+
+                        <div class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold mb-3 tracking-wide"
+                             :class="getTagStyle(item)">
+                            <i class="mr-1.5" :class="getTagIcon(item)"></i>
+                            {{ item.action }}
+                        </div>
+                        
+                        <div v-if="item.alert" class="block">
+                            <span class="badge-alert"><i class="fas fa-exclamation-circle mr-1"></i>{{ item.alert }}</span>
+                        </div>
+
+                        <div v-if="item.foodOptions && item.foodOptions.length > 0" class="mt-3 mb-2 bg-orange-50/60 rounded-xl p-3 border border-orange-100" @click.stop>
+                            <div class="px-1 mb-2 flex items-center gap-1.5 text-xs font-bold text-orange-600">
+                                <i class="fas fa-utensils"></i> 附近美食 (3選1)
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div v-for="(food, fIdx) in item.foodOptions" :key="fIdx" 
+                                     class="bg-white p-2.5 rounded-lg border border-orange-100 shadow-sm flex justify-between items-center">
+                                     <div class="flex-1 min-w-0 mr-3">
+                                        <div class="font-bold text-slate-700 text-sm mb-0.5 truncate">{{ food.name }}</div>
+                                        <div class="text-[11px] text-gray-400 leading-tight">{{ food.desc }}</div>
+                                     </div>
+                                     <a :href="generateGoogleLink(food.query, food.name, 'walking')" target="_blank" 
+                                        class="shrink-0 w-7 h-7 flex items-center justify-center bg-orange-50 text-orange-500 rounded-full text-xs active:scale-95 transition">
+                                        <i class="fas fa-location-arrow"></i>
+                                     </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="item.shopOptions && item.shopOptions.length > 0" class="mt-2 mb-2 bg-pink-50/60 rounded-xl p-3 border border-pink-100" @click.stop>
+                            <div class="px-1 mb-2 flex items-center gap-1.5 text-xs font-bold text-pink-600">
+                                <i class="fas fa-shopping-bag"></i> 購物掃貨 (Donki/藥妝)
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div v-for="(shop, sIdx) in item.shopOptions" :key="sIdx" 
+                                     class="bg-white p-2.5 rounded-lg border border-pink-100 shadow-sm flex justify-between items-center">
+                                     <div class="flex-1 min-w-0 mr-3">
+                                        <div class="font-bold text-slate-700 text-sm mb-0.5 truncate">{{ shop.name }}</div>
+                                        <div class="text-[11px] text-gray-400 leading-tight">{{ shop.desc }}</div>
+                                     </div>
+                                     <a :href="generateGoogleLink(shop.query, shop.name, 'walking')" target="_blank" 
+                                        class="shrink-0 w-7 h-7 flex items-center justify-center bg-pink-50 text-pink-500 rounded-full text-xs active:scale-95 transition">
+                                        <i class="fas fa-location-arrow"></i>
+                                     </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="item.images && item.images.length">
+                            <div class="photo-grid">
+                                <div v-for="(img, imgIdx) in item.images" :key="imgIdx" class="photo-item bg-gray-100" @click.stop="viewImage(img.url)">
+                                    <img :src="img.url" loading="lazy">
+                                    <button @click.stop="deleteSingleImage(item, imgIdx)" class="absolute top-1 right-1 bg-black/40 backdrop-blur text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                            
+                        <label class="mt-3 flex items-center gap-2 text-xs text-gray-400 py-2 cursor-pointer hover:text-blue-600 transition w-fit" @click.stop>
+                            <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center"><i class="fas fa-camera"></i></div>
+                            <span class="font-medium">新增照片</span>
+                            <input type="file" multiple accept="image/*" class="hidden" @change="uploadImages($event, item)">
+                        </label>
                     </div>
-                </transition-group>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <main class="flex-1 px-4 py-4 space-y-4 pb-32">
-        <div class="flex justify-between items-end px-1">
-            <h3 class="text-slate-400 text-sm font-medium">我的持倉</h3>
-            <button @click="triggerPriceUpdate" :disabled="isUpdatingPrices" class="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300 transition active:scale-95 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 disabled:opacity-50">
-                <span class="material-icons-round text-sm" :class="{'animate-spin': isUpdatingPrices}">sync</span> 
-                {{ isUpdatingPrices ? '更新中...' : '刷新報價' }}
+            <div v-show="currentView === 'map'" class="h-full w-full relative">
+                <div id="map"></div>
+                <div class="absolute bottom-28 right-4 z-[400] flex flex-col gap-3">
+                    <button @click="toggleMapMode" class="w-12 h-12 bg-white rounded-full shadow-xl text-slate-700 flex items-center justify-center font-bold text-xs border border-gray-100 active:scale-95 transition">
+                        {{ showAllMap ? '全部' : '當天' }}
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 px-6 py-3 flex justify-around items-center z-50 max-w-[430px] mx-auto pb-safe shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
+            <button @click="changeDay(currentDay)" class="flex flex-col items-center gap-1 transition" :class="currentView === 'list' ? 'text-blue-600' : 'text-gray-300'">
+                <i class="fas fa-list-ul text-xl"></i>
+                <span class="text-[10px] font-bold">行程</span>
             </button>
-        </div>
+            
+            <button @click="openModal()" class="w-14 h-14 bg-gradient-brand rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center text-white text-2xl -mt-10 border-4 border-white active:scale-95 transition hover:shadow-blue-500/60">
+                <i class="fas fa-plus"></i>
+            </button>
+            
+            <button @click="switchMap" class="flex flex-col items-center gap-1 transition" :class="currentView === 'map' ? 'text-blue-600' : 'text-gray-300'">
+                <i class="fas fa-map-marked-alt text-xl"></i>
+                <span class="text-[10px] font-bold">地圖</span>
+            </button>
+        </nav>
 
-        <div v-if="stocks.length === 0" class="text-center py-16 opacity-50">
-            <span class="material-icons-round text-4xl mb-2">savings</span>
-            <p class="text-sm">暫無持倉數據</p>
-        </div>
-
-        <transition-group name="list">
-            <div v-for="stock in stocks" :key="stock.id" class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700/60 relative hover:border-slate-600 transition duration-300 group">
+        <div v-if="showModal" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="showModal = false"></div>
+            <div class="bg-white w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-6 relative z-10 animate-slide-up shadow-2xl">
+                <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+                <h3 class="text-lg font-bold mb-6 text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-edit text-blue-500"></i>
+                    {{ isEditing ? '編輯行程' : '新增行程' }}
+                </h3>
                 
-                <button v-if="isAdmin" @click="removeStock(stock.id)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-10 hover:bg-red-600 transition">
-                    <span class="material-icons-round text-xs">close</span>
-                </button>
-
-                <div class="flex justify-between items-center mb-3">
-                    <div class="flex flex-col">
-                        <h4 class="font-bold text-white text-2xl font-mono tracking-wider">{{ stock.code }}</h4>
-                        <span class="text-xs text-slate-500 font-mono mt-1">Cost: ${{ stock.cost }}</span>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-1">
+                            <label class="text-xs text-gray-500 font-bold ml-1 mb-1.5 block">時間</label>
+                            <input type="time" v-model="form.time" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-xs text-gray-500 font-bold ml-1 mb-1.5 block">地點名稱</label>
+                            <input type="text" v-model="form.location" placeholder="例如: 清水寺" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3.5 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-bold ml-1 mb-1.5 block">活動內容 / 備註</label>
+                        <input type="text" v-model="form.action" placeholder="例如: 穿和服拍照" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3.5 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition">
                     </div>
                     
-                    <div class="text-right px-4 py-2 rounded-lg transition-colors duration-500" :class="getPnLClass(stock, 'bg')">
-                        <p class="text-2xl font-bold nums leading-none" :class="getPnLClass(stock, 'text')">
-                            {{ getPnLPercent(stock) }}%
-                        </p>
+                    <div class="flex items-center mt-2">
+                         <input type="checkbox" id="uberCheck" v-model="form.isUber" class="w-4 h-4 text-blue-600 rounded">
+                         <label for="uberCheck" class="ml-2 text-sm text-gray-700 font-bold">標示為 Uber 行程</label>
+                    </div>
+
+                    <div class="flex gap-3 pt-4">
+                        <button v-if="isEditing" @click="deleteActivity" class="flex-1 bg-red-50 text-red-500 py-3.5 rounded-xl font-bold text-sm hover:bg-red-100 transition">刪除</button>
+                        <button @click="saveActivity" class="flex-[2] bg-gradient-brand text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/30 active:scale-95 transition">儲存變更</button>
                     </div>
                 </div>
-
-                <div class="flex justify-between items-center text-sm border-t border-slate-700/80 pt-3 mt-1">
-                    <span class="text-slate-400 text-xs flex items-center gap-1">
-                        現價 <span v-if="stock.lastUpdate" class="text-[10px] opacity-60">({{ formatTime(stock.lastUpdate) }})</span>
-                    </span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-mono" :class="getPnLClass(stock, 'text')">
-                            {{ getPnLValue(stock) }}
-                        </span>
-                        <span class="text-xl font-bold text-white nums font-mono">${{ stock.currentPrice || '-' }}</span>
-                    </div>
-                </div>
-            </div>
-        </transition-group>
-    </main>
-
-    <button v-if="isAdmin" @click="showAddModal = true" class="fixed bottom-8 right-6 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-900/50 flex items-center justify-center transition transform hover:scale-105 active:scale-90 z-40">
-        <span class="material-icons-round text-3xl">add</span>
-    </button>
-
-    <div v-if="showAddModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-slate-700">
-            <h3 class="text-lg font-bold mb-4 text-white">新增美股追蹤</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs text-slate-400 ml-1">股票代號</label>
-                    <input v-model="newStock.code" placeholder="如: NVDA" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none transition font-mono uppercase">
-                </div>
-                <div>
-                    <label class="text-xs text-slate-400 ml-1">持倉成本</label>
-                    <input type="number" v-model="newStock.cost" placeholder="0.00" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none transition font-mono">
-                </div>
-            </div>
-            <div class="flex gap-3 mt-8">
-                <button @click="showAddModal = false" class="flex-1 py-3 rounded-xl text-slate-400 bg-slate-700/50 hover:bg-slate-700 transition">取消</button>
-                <button @click="confirmAddStock" :disabled="isSaving" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-500 transition disabled:opacity-50">
-                    {{ isSaving ? '儲存中...' : '確認新增' }}
-                </button>
             </div>
         </div>
     </div>
-
 </div>
 
-<script type="module">
-    import { createApp, ref, onMounted, computed, watch } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDocs } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    // ==========================================
-    // ⚠️ 1. 填入 Firebase Config
-    // ==========================================
+<script>
     const firebaseConfig = {
-  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
-  authDomain: "stock-app-1f470.firebaseapp.com",
-  databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "stock-app-1f470",
-  storageBucket: "stock-app-1f470.firebasestorage.app",
-  messagingSenderId: "474136651144",
-  appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
+        apiKey: "AIzaSyByeBl_M9-TjF2i-5D71AjVm5j-vNCbAUc",
+        authDomain: "jp-travel-ef684.firebaseapp.com",
+        databaseURL: "https://jp-travel-ef684-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "jp-travel-ef684",
+        storageBucket: "jp-travel-ef684.firebasestorage.app",
+        messagingSenderId: "14551021580",
+        appId: "1:14551021580:web:586459078e20ac09175629"
     };
 
-    // ==========================================
-    // ⚠️ 2. 填入 Finnhub Key
-    // ==========================================
-    const FINNHUB_KEY = "d4rfo69r01qgts2nq050d4rfo69r01qgts2nq05g"; 
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+    const storage = firebase.storage();
 
-    // 初始化 Firebase
-    let db;
-    try {
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-    } catch(e) { console.error("Firebase Init Failed", e); }
+    const { createApp } = Vue;
 
-    createApp({
-        setup() {
-            // 從 LocalStorage 讀取管理員狀態
-            const isAdmin = ref(localStorage.getItem('isAdmin') === 'true');
-            
-            const showAddModal = ref(false);
-            const isUpdatingPrices = ref(false);
-            const isSaving = ref(false);
-            const statusMsg = ref("正在連線...");
-            const statusColor = ref("bg-yellow-500");
-            
-            const stocks = ref([]);
-            const notices = ref([]);
-            const newStock = ref({ code: '', cost: '' });
-            const localMarketData = ref({}); 
+    // v45: 移除自動換日 + 修正 Day1/Day5 列車時間 + 優化 Day4 路線
+    const masterDataVFinal = {
+       0: [
+           { id: 101, time: '15:30', location: '關西機場 T2', action: '降落', transport_mode: 'transit', coords: [34.4357, 135.2443], alert: '需搭接駁車至 T1' },
+           { id: 102, time: '17:35', location: '關西機場站 (T1)', action: '搭乘 Rapi:t', transport_mode: 'transit', coords: [34.4367, 135.2435] },
+           { id: 103, time: '18:15', location: '南海難波站', action: '抵達大阪', transport_mode: 'walking', coords: [34.6631, 135.5023] },
+           { id: 104, time: '18:30', location: 'Caption by Hyatt Namba', action: '前往飯店 Check-in', isUber: true, isHotel: true, transport_mode: 'driving', coords: [34.6655, 135.5065] },
+           { id: 105, time: '19:00', location: '道頓堀 (Dotonbori)', action: '晚餐', transport_mode: 'walking', coords: [34.6687, 135.5013], 
+             foodOptions: [
+                 {name:'一蘭拉麵 道頓堀', desc:'24hr 經典豚骨，獨立隔間', query:'Ichiran Dotonbori', coords:[34.6698, 135.5025]}, 
+                 {name:'千房大阪燒', desc:'道地大阪燒，口感鬆軟', query:'Chibo Dotonbori', coords:[34.6685, 135.5032]}, 
+                 {name:'串炸達人 (Kushikatsu Daruma)', desc:'大阪名物炸串，禁止沾兩次醬', query:'Kushikatsu Daruma Dotonbori', coords:[34.6690, 135.5035]}
+             ]
+           },
+           { id: 106, time: '20:30', location: '道頓堀購物區', action: '購物掃貨', isShop: true, transport_mode: 'walking', coords: [34.6690, 135.5020],
+             shopOptions: [
+                 {name:'唐吉訶德 道頓堀店', desc:'摩天輪下那間，東西最全', query:'Don Quijote Dotonbori', coords:[34.6695, 135.5030]},
+                 {name:'大國藥妝 (激安店)', desc:'價格極具競爭力，可退稅', query:'Daikoku Drug Ultra Shift', coords:[34.6680, 135.5020]}
+             ]
+           }
+       ],
+       1: [
+           { id: 201, time: '09:00', location: '難波八阪神社', action: '巨大獅子頭，必拍！', recommend: true, transport_mode: 'walking', coords: [34.6613, 135.4965] },
+           { id: 202, time: '10:00', location: '大阪難波站', action: '搭乘阪神電車往神戶', transport_mode: 'transit', coords: [34.6672, 135.5065] },
+           { id: 203, time: '11:00', location: '神戶三宮站', action: '抵達/準備午餐', transport_mode: 'walking', coords: [34.6930, 135.1915], 
+             foodOptions: [
+                 {name:'Steakland 神戶館', desc:'高CP值鐵板燒，觀光客首選', query:'Steakland Kobe-kan', coords:[34.6929, 135.1917]},
+                 {name:'Moriya (モーリヤ)', desc:'志玲姐姐推薦，頂級神戶牛', query:'Mouriya Sannomiya', coords:[34.6925, 135.1910]},
+                 {name:'石田屋 (Ishida)', desc:'精緻燒肉風格，肉質極佳', query:'Kobe Beef Ishida', coords:[34.6935, 135.1920]}
+             ] 
+           },
+           { id: 204, time: '13:30', location: '神戶 Mosaic 廣場', action: '前往港區 (建議 Uber)', isUber: true, transport_mode: 'driving', coords: [34.6795, 135.1843] },
+           { id: 205, time: '14:00', location: 'Mosaic 3F', action: '孩子天堂 (麵包超人/扭蛋)', isGame: true, transport_mode: 'walking', coords: [34.6795, 135.1843] },
+           { id: 206, time: '17:30', location: '神戶港塔', action: '夜景/散步', transport_mode: 'walking', coords: [34.6815, 135.1765] },
+           { id: 207, time: '18:30', location: '大阪難波', action: '返回/晚餐', transport_mode: 'transit', coords: [34.6672, 135.5065],
+             foodOptions: [
+                 {name:'鳥貴族 難波', desc:'均一價串燒居酒屋，便宜好吃', query:'Torikizoku Namba', coords:[34.6675, 135.5055]},
+                 {name:'天政烏龍麵', desc:'快速便宜，湯頭鮮甜', query:'Tenmasa Udon Namba', coords:[34.6660, 135.5045]},
+                 {name:'燒肉力丸', desc:'燒肉吃到飽，大孩子最愛', query:'Yakiniku Rikimaru Namba', coords:[34.6650, 135.5030]}
+             ]
+           },
+           { id: 208, time: '20:30', location: '千日前商店街', action: '補貨', isShop: true, transport_mode: 'walking', coords: [34.6660, 135.5040],
+             shopOptions: [
+                {name:'唐吉訶德 難波店', desc:'千日前店，比道頓堀人少一點', query:'Don Quijote Namba Sennichimae', coords:[34.6655, 135.5035]},
+                {name:'Sundrug 藥妝', desc:'營業到較晚，特價品多', query:'Sundrug Namba', coords:[34.6665, 135.5045]}
+             ]
+           }
+       ],
+       2: [
+           { id: 301, time: '09:30', location: '黑門市場', action: '吃海鮮早餐', transport_mode: 'walking', coords: [34.6654, 135.5065] },
+           { id: 302, time: '11:00', location: '淀屋橋站', action: '移動 (行李多建議直接 Uber 至車站)', isUber: true, transport_mode: 'driving', coords: [34.6930, 135.5015] },
+           { id: 303, time: '12:30', location: 'Hyatt Place Kyoto', action: 'Check-in (車站至飯店若累可 Uber)', isUber: true, isHotel: true, transport_mode: 'driving', coords: [35.0163, 135.7592] },
+           { id: 304, time: '13:30', location: '錦市場', action: '午餐 (人多請注意安全)', transport_mode: 'driving', coords: [35.0050, 135.7630],
+             foodOptions: [
+                 {name:'名代豬排 三條本店', desc:'座位寬敞，白飯味噌湯吃到飽', query:'Katsukura Sanjo', coords:[35.0088, 135.7665]},
+                 {name:'一風堂 錦小路', desc:'豚骨拉麵，不辣適合小孩', query:'Ippudo Nishiki-Koji', coords:[35.0042, 135.7625]},
+                 {name:'錦 Warai (わらい)', desc:'京風大阪燒，炒麵也好吃', query:'Nishiki Warai', coords:[35.0045, 135.7615]}
+             ]
+           },
+           { id: 305, time: '15:30', location: 'Nintendo Kyoto', action: '任天堂旗艦店 (需整理券)', isGame: true, transport_mode: 'walking', coords: [35.0038, 135.7695] },
+           { id: 306, time: '18:00', location: '四條河原町', action: '晚餐', transport_mode: 'walking', coords: [35.0040, 135.7690],
+             foodOptions: [
+                 {name:'武藏壽司 (Musashi)', desc:'河原町人氣迴轉壽司，老字號', query:'Sushi no Musashi Sanjo', coords:[35.0090, 135.7695]},
+                 {name:'祇園 Tanto', desc:'鐵板燒/大阪燒，就在運河旁', query:'Gion Tanto', coords:[35.0055, 135.7735]},
+                 {name:'Chao Chao 餃子', desc:'一口餃子，皮薄酥脆', query:'Chao Chao Sanjo Kiyamachi', coords:[35.0080, 135.7710]}
+             ]
+           },
+           { id: 307, time: '19:30', location: '河原町購物區', action: '大型採購', isShop: true, transport_mode: 'walking', coords: [35.0050, 135.7700],
+             shopOptions: [
+                 {name:'唐吉訶德 河原町店', desc:'京都最大間，整棟超好逛', query:'Don Quijote Kawaramachi', coords:[35.0050, 135.7700]},
+                 {name:'松本清 (京都四條)', desc:'藥妝品項齊全', query:'Matsumoto Kiyoshi Kyoto Shijo', coords:[35.0035, 135.7695]}
+             ]
+           }
+       ],
+       3: [
+           { id: 401, time: '08:30', location: '伏見稻荷大社', action: '千本鳥居', recommend: true, transport_mode: 'driving', coords: [34.9671, 135.7726] },
+           { id: 402, time: '10:30', location: '清水寺', action: '移動至清水寺 (強烈建議 Uber)', isUber: true, recommend: true, transport_mode: 'driving', coords: [34.9949, 135.7850], alert: '此段路程若轉車很麻煩，直接搭車最快' },
+           { id: 403, time: '12:00', location: '清水道', action: '午餐', transport_mode: 'walking', coords: [34.9960, 135.7830],
+             foodOptions: [
+                 {name:'Omen 烏龍麵', desc:'名店，蔬菜烏龍麵小孩愛吃', query:'Omen Kodaiji', coords:[34.9990, 135.7800]},
+                 {name:'奧丹 (Okutan)', desc:'湯豆腐老店，環境優美', query:'Okutan Kiyomizu', coords:[34.9965, 135.7835]},
+                 {name:'日出烏龍麵 (Hinode)', desc:'咖哩烏龍麵最有名(需排隊)', query:'Hinode Udon', coords:[35.0150, 135.7950]}
+             ]
+           },
+           { id: 404, time: '14:30', location: '三年坂/二年坂', action: '散步往祇園方向', isGame: true, transport_mode: 'walking', coords: [35.0035, 135.7780] },
+           { id: 405, time: '17:00', location: '八坂神社 / 祇園', action: '傍晚散步，氣氛極佳', recommend: true, transport_mode: 'walking', coords: [35.0036, 135.7785] },
+           { id: 406, time: '18:30', location: '先斗町 (Pontocho)', action: '晚餐 (比去京都站順路且有氣氛)', transport_mode: 'walking', coords: [35.0055, 135.7710],
+             foodOptions: [
+                 {name:'柚子元 (Yuzugen)', desc:'知名柚子鍋，需預約', query:'Yuzugen Pontocho', coords:[35.0050, 135.7715]},
+                 {name:'Katsukura (名代豬排)', desc:'三條本店就在附近', query:'Katsukura Sanjo', coords:[35.0088, 135.7665]},
+                 {name:'牛炸 (Gyukatsu)', desc:'京都勝牛，炸牛排', query:'Kyoto Katsugyu Pontocho', coords:[35.0060, 135.7710]}
+             ]
+           },
+           { id: 407, time: '20:30', location: 'Hyatt Place Kyoto', action: '搭 Uber 回飯店 (約 1000 円)', isUber: true, transport_mode: 'driving', coords: [35.0163, 135.7592] }
+       ],
+       4: [
+           { id: 501, time: '08:45', location: '京都站 八條口', action: '搭乘 Haruka 往機場', recommend: true, transport_mode: 'driving', coords: [34.9850, 135.7580] },
+           { id: 502, time: '10:15', location: '關西機場 T1', action: '登機/免稅店 (若搭廉航需再轉 T2)', transport_mode: 'walking', coords: [34.4357, 135.2443],
+             foodOptions: [
+                 {name:'神座拉麵 機場店', desc:'T1 3F，大量白菜湯頭', query:'Kamukura Kansai Airport', coords:[34.4350, 135.2440]},
+                 {name:'Sukiya 機場店', desc:'T1 2F，快速解決', query:'Sukiya Kansai Airport', coords:[34.4355, 135.2445]},
+                 {name:'551蓬萊', desc:'T1 2F 必買豬肉包(可外帶)', query:'551 Horai Kansai Airport', coords:[34.4360, 135.2450]}
+             ],
+             shopOptions: [
+                 {name:'Cocokara Fine 藥妝', desc:'T1 3F 最後補貨機會', query:'Cocokara Fine Kansai Airport', coords:[34.4355, 135.2445]},
+                 {name:'Pokemon Store', desc:'T1 2F 孩子最後一站', query:'Pokemon Store Kansai Airport', coords:[34.4357, 135.2443]}
+             ]
+           }
+       ]
+    };
 
-            // 監聽並自動保存管理員狀態
-            watch(isAdmin, (newVal) => {
-                if (newVal) localStorage.setItem('isAdmin', 'true');
-                else localStorage.removeItem('isAdmin');
-            });
-
-            onMounted(() => {
-                if(!db) {
-                    statusMsg.value = "Config 錯誤";
-                    statusColor.value = "bg-red-500";
-                    return;
-                }
-
-                // 監聽股票
-                const qStocks = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
-                onSnapshot(qStocks, (snapshot) => {
-                    statusMsg.value = "連線正常";
-                    statusColor.value = "bg-green-500";
-                    
-                    const stockList = snapshot.docs.map(doc => {
-                        const savedData = doc.data();
-                        const market = localMarketData.value[doc.id] || {};
-                        return {
-                            id: doc.id,
-                            ...savedData,
-                            currentPrice: market.price || savedData.cost, 
-                            lastUpdate: market.time
-                        };
-                    });
-                    stocks.value = stockList;
-                    
-                    // 自動刷新價格
-                    if(stockList.length > 0 && Object.keys(localMarketData.value).length === 0) {
-                        triggerPriceUpdate();
-                    }
-                }, (error) => {
-                    console.error(error);
-                    statusMsg.value = "權限不足或連線失敗";
-                    statusColor.value = "bg-red-500";
-                });
-
-                // 監聽公告
-                const qNotices = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                onSnapshot(qNotices, (snapshot) => {
-                    notices.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                });
-            });
-
-            // 價格抓取
-            const triggerPriceUpdate = async () => {
-                if (stocks.value.length === 0) return;
-                if (!FINNHUB_KEY || FINNHUB_KEY.includes("YOUR")) return;
-
-                isUpdatingPrices.value = true;
-                const promises = stocks.value.map(async (stock) => {
-                    try {
-                        const symbol = stock.code.toUpperCase();
-                        const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
-                        const data = await response.json();
-                        
-                        if (data.c) {
-                            localMarketData.value[stock.id] = { price: data.c, time: new Date() };
-                            stock.currentPrice = data.c;
-                            stock.lastUpdate = new Date();
-                        }
-                    } catch (e) { console.error(e); }
-                });
-                await Promise.all(promises);
-                isUpdatingPrices.value = false;
-            };
-
-            // 新增股票
-            const confirmAddStock = async () => {
-                if (!newStock.value.code || !newStock.value.cost) return alert("請填寫完整");
-                isSaving.value = true;
-                try {
-                    await addDoc(collection(db, "stocks"), {
-                        code: newStock.value.code.toUpperCase(),
-                        cost: parseFloat(newStock.value.cost),
-                        createdAt: serverTimestamp()
-                    });
-                    newStock.value = { code: '', cost: '' };
-                    showAddModal.value = false;
-                    setTimeout(triggerPriceUpdate, 500); 
-                } catch (e) {
-                    alert("新增失敗: " + e.message);
-                } finally { isSaving.value = false; }
-            };
-
-            // 新增公告 (含自動清理)
-            const addNotice = async () => {
-                const txt = prompt("請輸入公告:");
-                if (!txt) return;
-                try {
-                    const now = new Date();
-                    const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
-                    await addDoc(collection(db, "notices"), {
-                        content: txt, dateStr, createdAt: serverTimestamp()
-                    });
-                    
-                    // 自動清理舊公告
-                    const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                    const snapshot = await getDocs(q);
-                    if (snapshot.size > 9) {
-                        const toDelete = snapshot.docs.slice(9);
-                        for (const d of toDelete) await deleteDoc(d.ref);
-                    }
-                } catch(e) { alert("公告失敗: " + e.message); }
-            };
-
-            const removeStock = async (id) => { if(confirm("刪除此股票?")) await deleteDoc(doc(db, "stocks", id)); };
-            const removeNotice = async (id) => { if(confirm("刪除此公告?")) await deleteDoc(doc(db, "notices", id)); };
-
-            const toggleAdmin = () => {
-                if (isAdmin.value) {
-                    if(confirm("確定登出管理員?")) isAdmin.value = false;
-                } else {
-                    if (prompt("請輸入管理員密碼") === "tiktok") isAdmin.value = true;
-                }
-            };
-
-            // 計算邏輯
-            const getPnLPercent = (stock) => {
-                const cur = stock.currentPrice || stock.cost;
-                const pnl = ((cur - stock.cost) / stock.cost) * 100;
-                return (pnl > 0 ? "+" : "") + pnl.toFixed(2);
-            };
-            const getPnLValue = (stock) => {
-                const cur = stock.currentPrice || stock.cost;
-                const diff = cur - stock.cost;
-                return (diff > 0 ? "+" : "") + diff.toFixed(2);
-            };
-            const getPnLClass = (stock, type) => {
-                const cur = stock.currentPrice || stock.cost;
-                const isUp = cur >= stock.cost;
-                if(type === 'text') return isUp ? 'text-up' : 'text-down';
-                if(type === 'bg') return isUp ? 'bg-up' : 'bg-down';
-            };
-            const formatTime = (dateObj) => {
-                if(!dateObj) return '';
-                return dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute:'2-digit' });
-            };
-
+    const app = createApp({
+        data() {
             return {
-                isAdmin, showAddModal, isUpdatingPrices, isSaving, statusMsg, statusColor,
-                stocks, notices, newStock,
-                toggleAdmin, confirmAddStock, removeStock, addNotice, removeNotice,
-                triggerPriceUpdate, getPnLPercent, getPnLClass, getPnLValue, formatTime
-            };
-        }
-    }).mount('#app');
-</script>
+                isAccessGranted: false,
+                passcode: '',
+                correctPasscode: 'alfredyiting',
 
+                currentDay: 0,
+                currentView: 'list',
+                showModal: false,
+                isEditing: false,
+                showAllMap: true, 
+                mapInstance: null,
+                markerGroup: null,
+                isLoading: false, loadingText: '讀取中...', progress: 0,
+                
+                days: [
+                    { date: '12/05', weekday: '週五', name: 'Day 1: 大阪', locCoords: {lat: 34.6937, lon: 135.5023}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } },
+                    { date: '12/06', weekday: '週六', name: 'Day 2: 神戶', locCoords: {lat: 34.6901, lon: 135.1955}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } },
+                    { date: '12/07', weekday: '週日', name: 'Day 3: 京都', locCoords: {lat: 35.0116, lon: 135.7681}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } },
+                    { date: '12/08', weekday: '週一', name: 'Day 4: 京都', locCoords: {lat: 35.0116, lon: 135.7681}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } },
+                    { date: '12/09', weekday: '週二', name: 'Day 5: 返程', locCoords: {lat: 34.4320, lon: 135.2304}, weather: { icon: 'fas fa-spinner fa-spin', temp_high: '-' } }
+                ],
+                activities: {},
+                form: { id: null, time: '', location: '', action: '', coords: [], images: [], foodOptions: [], shopOptions: [], isUber: false }
+            }
+        },
+        computed: {
+            currentActivities() { return this.activities[this.currentDay] || []; },
+            sortedActivities() { return [...this.currentActivities].sort((a, b) => a.time.localeCompare(b.time)); }
+        },
+        mounted() { 
+            this.loadAndMergeData(); 
+            this.fetchRealTimeWeather();
+            if(localStorage.getItem('trip_unlocked') === 'true') this.isAccessGranted = true;
+        },
+        methods: {
+            getMainName(str) { return str ? str.split('(')[0] : ''; },
+            getSubName(str) { 
+                if(!str) return '';
+                const match = str.match(/\(([^)]+)\)/);
+                return match ? match[1] : '';
+            },
+            getIconColor(item) {
+                if (item.isShop) return 'bg-pink-500 ring-2 ring-pink-200';
+                if (item.isHotel) return 'bg-indigo-500 ring-2 ring-indigo-200';
+                if (item.isGame) return 'bg-orange-500 ring-2 ring-orange-200';
+                if (item.recommend) return 'bg-slate-800 ring-2 ring-slate-300';
+                return 'bg-blue-500 ring-2 ring-blue-200';
+            },
+            getTagStyle(item) {
+                if (item.isShop) return 'bg-pink-50 text-pink-600 border border-pink-100';
+                if (item.isHotel) return 'bg-indigo-50 text-indigo-600 border border-indigo-100';
+                if (item.isGame) return 'bg-orange-50 text-orange-600 border border-orange-100';
+                return 'bg-blue-50 text-blue-600 border border-blue-100';
+            },
+            getTagIcon(item) {
+                if (item.isShop) return 'fas fa-shopping-bag';
+                if (item.isHotel) return 'fas fa-bed';
+                if (item.isGame) return 'fas fa-gamepad';
+                return 'fas fa-walking';
+            },
+            async fetchRealTimeWeather() {
+                const year = new Date().getFullYear(); 
+                this.days.forEach(async (day, index) => {
+                    const [m, d] = day.date.split('/');
+                    const apiDate = `${year}-${m}-${d}`;
+                    try {
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${day.locCoords.lat}&longitude=${day.locCoords.lon}&daily=weathercode,temperature_2m_max&timezone=Asia%2FTokyo&start_date=${apiDate}&end_date=${apiDate}`);
+                        const data = await res.json();
+                        if (data.daily) {
+                            const code = data.daily.weathercode[0];
+                            this.days[index].weather = { 
+                                icon: this.getWeatherIcon(code), 
+                                temp_high: Math.round(data.daily.temperature_2m_max[0])
+                            };
+                        }
+                    } catch (err) {}
+                });
+            },
+            getWeatherIcon(code) {
+                if (code === 0) return 'fas fa-sun text-yellow-400';
+                if ([1, 2, 3].includes(code)) return 'fas fa-cloud-sun text-gray-300';
+                if (code >= 51) return 'fas fa-umbrella text-blue-300';
+                return 'fas fa-cloud text-gray-400';
+            },
+            loadAndMergeData() {
+                this.isLoading = true;
+                const tripRef = db.ref('trip_final_family_v45'); 
+                tripRef.on('value', (snapshot) => {
+                    const cloudData = snapshot.val();
+                    if (cloudData) {
+                        for(let i=0; i<this.days.length; i++) {
+                            if(!cloudData[i]) cloudData[i] = [];
+                            else cloudData[i].forEach(item => { if (!item.images) item.images = []; });
+                        }
+                        this.activities = cloudData;
+                    } else {
+                        this.activities = JSON.parse(JSON.stringify(masterDataVFinal));
+                        this.saveToStorage();
+                    }
+                    this.isLoading = false;
+                });
+            },
+            saveToStorage() { db.ref('trip_final_family_v45').set(this.activities); },
+            async uploadImages(event, item) {
+                const files = event.target.files;
+                if (!files.length) return;
+                this.isLoading = true; this.loadingText = "上傳中...";
+                if (!item.images) item.images = [];
+                let completed = 0;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const filePath = `trip_photos_v45/${Date.now()}_${i}_${file.name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+                    try {
+                        const snapshot = await storage.ref().child(filePath).put(file);
+                        const url = await snapshot.ref.getDownloadURL();
+                        item.images.push({ url, storagePath: filePath });
+                    } catch(e){}
+                    completed++;
+                    this.progress = Math.round((completed / files.length) * 100);
+                }
+                this.saveToStorage(); this.isLoading = false; event.target.value = '';
+            },
+            deleteSingleImage(item, index) {
+                if (!confirm("刪除此照片？")) return;
+                const img = item.images[index];
+                if(img.storagePath) storage.ref().child(img.storagePath).delete();
+                item.images.splice(index, 1);
+                this.saveToStorage();
+            },
+            viewImage(url) { window.open(url, '_blank'); },
+            generateGoogleLink(query, name, mode) {
+                const q = encodeURIComponent(query || name);
+                if (mode === 'walking') return `https://www.google.com/maps/search/?api=1&query=${q}`;
+                return `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=${mode || 'transit'}`;
+            },
+            changeDay(index) {
+                this.currentDay = index; this.currentView = 'list'; this.showAllMap = false;
+                const container = document.querySelector('.scroll-container');
+                if(container) container.scrollTop = 0;
+                if (this.mapInstance) this.$nextTick(() => { this.updateMapMarkers(); });
+            },
+            switchMap() {
+                this.currentView = 'map'; this.showAllMap = true;
+                this.$nextTick(() => { if (!this.mapInstance) this.initMap(); else { this.mapInstance.invalidateSize(); this.updateMapMarkers(); } });
+            },
+            toggleMapMode() { this.showAllMap = !this.showAllMap; this.updateMapMarkers(); },
+            initMap() {
+                this.mapInstance = L.map('map');
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap' }).addTo(this.mapInstance);
+                this.markerGroup = L.layerGroup().addTo(this.mapInstance);
+                this.updateMapMarkers();
+            },
+            updateMapMarkers() {
+                if (!this.mapInstance || !this.markerGroup) return;
+                this.markerGroup.clearLayers();
+                let acts = this.showAllMap ? Object.values(this.activities).flat() : (this.activities[this.currentDay] || []);
+                const bounds = [];
+                acts.forEach(item => {
+                    if(item.coords) {
+                       L.circleMarker(item.coords, { color: '#3b82f6', radius: 8, fillOpacity: 0.8 }).addTo(this.markerGroup).bindPopup(item.location);
+                       bounds.push(item.coords);
+                    }
+                    if(item.foodOptions) {
+                        item.foodOptions.forEach(f => {
+                            L.circleMarker(f.coords, { color: '#f97316', radius: 5, fillOpacity: 0.8 }).addTo(this.markerGroup).bindPopup(f.name);
+                        });
+                    }
+                    if(item.shopOptions) {
+                        item.shopOptions.forEach(s => {
+                            L.circleMarker(s.coords, { color: '#ec4899', radius: 5, fillOpacity: 0.8 }).addTo(this.markerGroup).bindPopup(s.name);
+                        });
+                    }
+                });
+                if (bounds.length) this.mapInstance.fitBounds(bounds, { padding: [50, 50] });
+            },
+            checkPasscode() {
+                if (this.passcode === this.correctPasscode) {
+                    this.isAccessGranted = true;
+                    localStorage.setItem('trip_unlocked', 'true');
+                } else alert('密碼錯誤！');
+            },
+            openModal(item = null) {
+                this.isEditing = !!item;
+                this.form = item ? JSON.parse(JSON.stringify(item)) : { id: Date.now(), time: '09:00', location: '', action: '', coords: [], images: [], foodOptions: [], shopOptions: [], isUber: false };
+                this.showModal = true;
+            },
+            saveActivity() {
+                if (!this.form.location) return;
+                if (!this.activities[this.currentDay]) this.activities[this.currentDay] = [];
+                if (this.isEditing) {
+                    const idx = this.activities[this.currentDay].findIndex(x => x.id === this.form.id);
+                    if (idx !== -1) {
+                         if(this.activities[this.currentDay][idx].images) this.form.images = this.activities[this.currentDay][idx].images;
+                         // 保留推薦資料
+                         if(this.activities[this.currentDay][idx].foodOptions) this.form.foodOptions = this.activities[this.currentDay][idx].foodOptions;
+                         if(this.activities[this.currentDay][idx].shopOptions) this.form.shopOptions = this.activities[this.currentDay][idx].shopOptions;
+                         if(this.activities[this.currentDay][idx].alert) this.form.alert = this.activities[this.currentDay][idx].alert;
+                         this.activities[this.currentDay][idx] = this.form;
+                    }
+                } else this.activities[this.currentDay].push(this.form);
+                this.saveToStorage(); this.showModal = false;
+            },
+            deleteActivity() {
+                if(confirm('刪除？')) {
+                    this.activities[this.currentDay] = this.activities[this.currentDay].filter(x => x.id !== this.form.id);
+                    this.saveToStorage(); this.showModal = false;
+                }
+            },
+            resetData() {
+                if(confirm('重置資料？')) {
+                    this.activities = JSON.parse(JSON.stringify(masterDataVFinal));
+                    this.saveToStorage();
+                    this.currentDay = 0;
+                }
+            },
+            downloadMemories() { alert("旅程結束後可在此下載完整回憶相簿！"); }
+        }
+    });
+    app.mount('#app');
+</script>
 </body>
 </html>
