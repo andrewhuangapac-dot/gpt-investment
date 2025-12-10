@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT投資看板 (Final Pro)</title>
+    <title>GPT投資看板 (Final Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -46,6 +46,35 @@
             </button>
         </div>
     </header>
+
+    <div class="px-4 pt-4">
+        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
+                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                    <span class="material-icons-round text-sm">campaign</span> 最新公告
+                </h3>
+                <button v-if="currentUser" @click="addNotice" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-full text-white transition flex items-center gap-1">
+                    <span class="material-icons-round text-xs">edit</span> 發布
+                </button>
+            </div>
+            <div class="space-y-3 min-h-[40px]">
+                <p v-if="notices.length === 0" class="text-xs text-slate-500 text-center py-2">目前無公告</p>
+                <transition-group name="list">
+                    <div v-for="(notice, index) in notices" :key="notice.id" class="relative pl-4 group">
+                        <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-slate-700 group-last:hidden"></div>
+                        <div class="absolute left-[-2px] top-2 w-1.5 h-1.5 rounded-full" :class="index === 0 ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'"></div>
+                        <div class="flex items-start gap-3 pb-1">
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" :class="index === 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'">{{ notice.dateStr || 'Now' }}</span>
+                            <div class="flex-1 flex justify-between items-start">
+                                <p class="text-sm leading-snug break-all" :class="index === 0 ? 'text-white font-medium' : 'text-slate-300'">{{ notice.content }}</p>
+                                <button v-if="currentUser" @click="removeNotice(notice.id)" class="text-slate-600 hover:text-red-400 ml-2 opacity-0 group-hover:opacity-100 transition"><span class="material-icons-round text-xs">close</span></button>
+                            </div>
+                        </div>
+                    </div>
+                </transition-group>
+            </div>
+        </div>
+    </div>
 
     <main class="flex-1 px-4 py-4 space-y-4 pb-32">
         <div class="flex justify-between items-end px-1">
@@ -115,7 +144,7 @@
     import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
-    // 您的 Config (已自動填入)
+    // 您提供的 Config
     const firebaseConfig = {
   apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
   authDomain: "stock-app-1f470.firebaseapp.com",
@@ -131,7 +160,7 @@
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        // 預設區域 (美國)，如果之前有改動區域請在這裡調整
+        // 使用預設區域 us-central1 (因為您的 index.js 也是預設)
         functions = getFunctions(app); 
     } catch(e) { console.error("Firebase Init Failed", e); }
 
@@ -145,6 +174,7 @@
             const statusMsg = ref("連線中...");
             const statusColor = ref("bg-yellow-500");
             const stocks = ref([]);
+            const notices = ref([]);
             const newStock = ref({ code: '', cost: '', investDate: '' });
             const localMarketData = ref({}); 
 
@@ -155,6 +185,7 @@
                 if(!db) { isGlobalLoading.value = false; statusMsg.value = "Config Error"; return; }
                 onAuthStateChanged(auth, u => { currentUser.value = u; statusMsg.value = u ? "已登入" : "訪客"; });
 
+                // 1. 股票監聽
                 const q = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
                 onSnapshot(q, snap => {
                     statusColor.value = "bg-green-500";
@@ -170,9 +201,15 @@
                         callBackendForPrices();
                     }
                 });
+
+                // 2. 補回：公告監聽
+                const qNotices = query(collection(db, "notices"), orderBy("createdAt", "desc"));
+                onSnapshot(qNotices, snap => {
+                    notices.value = snap.docs.map(d => ({id:d.id, ...d.data()}));
+                });
             });
 
-            // 🔥 修正後的後端呼叫邏輯 🔥
+            // 🔥 修正：參數傳遞方式
             const callBackendForPrices = async () => {
                 if (stocks.value.length === 0) return;
                 isUpdatingPrices.value = true;
@@ -180,15 +217,19 @@
                     const symbols = stocks.value.map(s => s.code);
                     const fn = httpsCallable(functions, 'getStockQuotes');
                     
-                    console.log("正在更新報價...");
-                    const result = await fn({ symbols });
+                    console.log("更新中...", symbols);
+                    // 這裡傳送 { symbols: [...] } 物件
+                    const result = await fn({ symbols: symbols });
                     
-                    // ⚠️ 關鍵修正：後端回傳的是 { prices: {...}, debug: {...} }
-                    // 所以我們要取 result.data.prices
-                    const priceMap = result.data.prices || {}; 
-                    const debugLog = result.data.debug;
+                    // 根據新版後端，回傳結構是 { prices: {...} }
+                    // 如果後端傳回錯誤，result.data.error 會有值
+                    if (result.data.error) {
+                        console.warn("後端回報錯誤:", result.data.error);
+                        alert("部分股價更新失敗，可能是代號錯誤");
+                    }
 
-                    console.log("後端回傳 Debug:", debugLog);
+                    const priceMap = result.data.prices || {}; 
+                    console.log("價格表:", priceMap);
 
                     stocks.value.forEach(s => {
                         const code = s.code.toUpperCase();
@@ -200,7 +241,9 @@
                     });
                 } catch (e) {
                     console.error(e);
-                    alert("更新失敗：" + e.message);
+                    // 只有當真的是網絡斷線或後端掛掉時才彈窗
+                    // 忽略 JSON 解析錯誤，因為我們已經在後端做防呆了
+                    if(e.code !== 'internal') alert("連線錯誤：" + e.message);
                 } finally {
                     isUpdatingPrices.value = false;
                 }
@@ -229,7 +272,22 @@
                 } catch(e) { alert(e.message); } finally { isSaving.value = false; }
             };
 
+            const addNotice = async () => {
+                const t = prompt("公告:"); 
+                if(t) {
+                     await addDoc(collection(db,"notices"),{content:t, dateStr:`${new Date().getMonth()+1}/${new Date().getDate()}`, createdAt:serverTimestamp()});
+                     // 自動清理舊公告
+                     const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
+                     const snap = await getDocs(q);
+                     if(snap.size > 5) {
+                         const toDel = snap.docs.slice(5);
+                         for(const d of toDel) deleteDoc(d.ref);
+                     }
+                }
+            };
+
             const removeStock = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"stocks",id)); };
+            const removeNotice = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"notices",id)); };
             const getPnLPercent = (s) => { const c=s.currentPrice||s.cost; return ((c-s.cost)/s.cost*100).toFixed(2); };
             const getPnLValue = (s) => { const c=s.currentPrice||s.cost; return (c-s.cost).toFixed(2); };
             const getPnLClass = (s,t) => { const up=(s.currentPrice||s.cost)>=s.cost; return t==='text'?(up?'text-up':'text-down'):(up?'bg-up':'bg-down'); };
@@ -237,7 +295,7 @@
 
             return {
                 isGlobalLoading, currentUser, handleAuth, showAddModal, isUpdatingPrices, isSaving, statusMsg, statusColor,
-                stocks, newStock, openAddModal, confirmAddStock, removeStock,
+                stocks, notices, newStock, openAddModal, confirmAddStock, removeStock, addNotice, removeNotice,
                 callBackendForPrices, getPnLPercent, getPnLClass, getPnLValue, formatTime
             };
         }
