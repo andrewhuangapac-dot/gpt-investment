@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT投資看板 (Secure Pro)</title>
+    <title>GPT投資看板 (Final Pro)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -16,11 +16,20 @@
         .bg-up { background-color: rgba(74, 222, 128, 0.15); } .bg-down { background-color: rgba(248, 113, 113, 0.15); }
         .list-enter-active, .list-leave-active { transition: all 0.4s ease; }
         .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-20px); }
+        .fade-out-leave-active { transition: opacity 0.5s ease; }
+        .fade-out-leave-to { opacity: 0; }
     </style>
 </head>
 <body>
 
 <div id="app" class="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl border-x border-slate-800 flex flex-col">
+
+    <transition name="fade-out">
+        <div v-if="isGlobalLoading" class="fixed inset-0 z-[100] bg-slate-900 flex flex-col items-center justify-center">
+            <div class="w-12 h-12 border-4 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+            <h1 class="text-xl font-bold text-white tracking-wide animate-pulse">Loading...</h1>
+        </div>
+    </transition>
 
     <header class="bg-slate-900/90 backdrop-blur px-5 py-4 sticky top-0 z-30 border-b border-slate-800">
         <div class="flex justify-between items-center">
@@ -31,54 +40,23 @@
                     <span class="text-xs text-slate-400">{{ statusMsg }}</span>
                 </div>
             </div>
-            <button @click="handleAuth" 
-                    class="flex items-center gap-2 px-3 py-1.5 rounded-full transition active:scale-95 border"
-                    :class="currentUser ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'">
+            <button @click="handleAuth" class="flex items-center gap-2 px-3 py-1.5 rounded-full border transition active:scale-95" :class="currentUser ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'">
                 <span class="material-icons-round text-sm">{{ currentUser ? 'logout' : 'login' }}</span>
-                <span class="text-xs font-bold">{{ currentUser ? '管理員(登出)' : '管理員登入' }}</span>
+                <span class="text-xs font-bold">{{ currentUser ? '登出' : '管理員' }}</span>
             </button>
         </div>
     </header>
 
-    <div class="px-4 pt-4">
-        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-sm">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
-                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
-                    <span class="material-icons-round text-sm">campaign</span> GPT投資最新公告
-                </h3>
-                <button v-if="currentUser" @click="addNotice" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-full text-white transition flex items-center gap-1">
-                    <span class="material-icons-round text-xs">edit</span> 發布
-                </button>
-            </div>
-            <div class="space-y-3 min-h-[40px]">
-                <p v-if="notices.length === 0" class="text-xs text-slate-500 text-center py-2">目前無公告</p>
-                <transition-group name="list">
-                    <div v-for="(notice, index) in notices" :key="notice.id" class="relative pl-4 group">
-                        <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-slate-700 group-last:hidden"></div>
-                        <div class="absolute left-[-2px] top-2 w-1.5 h-1.5 rounded-full" :class="index === 0 ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'"></div>
-                        <div class="flex items-start gap-3 pb-1">
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" :class="index === 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'">{{ notice.dateStr || 'Now' }}</span>
-                            <div class="flex-1 flex justify-between items-start">
-                                <p class="text-sm leading-snug break-all" :class="index === 0 ? 'text-white font-medium' : 'text-slate-300'">{{ notice.content }}</p>
-                                <button v-if="currentUser" @click="removeNotice(notice.id)" class="text-slate-600 hover:text-red-400 ml-2 opacity-0 group-hover:opacity-100 transition"><span class="material-icons-round text-xs">close</span></button>
-                            </div>
-                        </div>
-                    </div>
-                </transition-group>
-            </div>
-        </div>
-    </div>
-
     <main class="flex-1 px-4 py-4 space-y-4 pb-32">
         <div class="flex justify-between items-end px-1">
-            <h3 class="text-slate-400 text-sm font-medium">GPT的持倉</h3>
+            <h3 class="text-slate-400 text-sm font-medium">我的持倉</h3>
             <button @click="callBackendForPrices" :disabled="isUpdatingPrices" class="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300 transition active:scale-95 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 disabled:opacity-50">
                 <span class="material-icons-round text-sm" :class="{'animate-spin': isUpdatingPrices}">cloud_sync</span> 
-                {{ isUpdatingPrices ? '雲端更新中...' : '刷新報價' }}
+                {{ isUpdatingPrices ? '更新中...' : '刷新報價' }}
             </button>
         </div>
 
-        <div v-if="stocks.length === 0" class="text-center py-16 opacity-50">
+        <div v-if="stocks.length === 0 && !isGlobalLoading" class="text-center py-16 opacity-50">
             <span class="material-icons-round text-4xl mb-2">savings</span>
             <p class="text-sm">暫無持倉數據</p>
         </div>
@@ -87,31 +65,43 @@
             <div v-for="stock in stocks" :key="stock.id" class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700/60 relative hover:border-slate-600 transition duration-300 group">
                 <button v-if="currentUser" @click="removeStock(stock.id)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-10 hover:bg-red-600 transition"><span class="material-icons-round text-xs">close</span></button>
                 <div class="flex justify-between items-center mb-3">
-                    <div class="flex flex-col"><h4 class="font-bold text-white text-2xl font-mono tracking-wider">{{ stock.code }}</h4><span class="text-xs text-slate-500 font-mono mt-1">Cost: ${{ stock.cost }}</span></div>
-                    <div class="text-right px-4 py-2 rounded-lg transition-colors duration-500" :class="getPnLClass(stock, 'bg')"><p class="text-2xl font-bold nums leading-none" :class="getPnLClass(stock, 'text')">{{ getPnLPercent(stock) }}%</p></div>
+                    <div class="flex flex-col">
+                        <h4 class="font-bold text-white text-2xl font-mono tracking-wider">{{ stock.code }}</h4>
+                        <div class="flex gap-2 mt-1">
+                            <span class="text-xs text-slate-500 font-mono">Cost: ${{ stock.cost }}</span>
+                            <span v-if="stock.investDate" class="text-[10px] text-blue-300 bg-blue-900/30 px-1.5 py-0.5 rounded font-mono">{{ stock.investDate.replace(/-/g, '/') }}</span>
+                        </div>
+                    </div>
+                    <div class="text-right px-4 py-2 rounded-lg transition-colors duration-500" :class="getPnLClass(stock, 'bg')">
+                        <p class="text-2xl font-bold nums leading-none" :class="getPnLClass(stock, 'text')">{{ getPnLPercent(stock) }}%</p>
+                    </div>
                 </div>
                 <div class="flex justify-between items-center text-sm border-t border-slate-700/80 pt-3 mt-1">
                     <span class="text-slate-400 text-xs flex items-center gap-1">現價 <span v-if="stock.lastUpdate" class="text-[10px] opacity-60">({{ formatTime(stock.lastUpdate) }})</span></span>
-                    <div class="flex items-center gap-3"><span class="text-xs font-mono" :class="getPnLClass(stock, 'text')">{{ getPnLValue(stock) }}</span><span class="text-xl font-bold text-white nums font-mono">${{ stock.currentPrice || '-' }}</span></div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-mono" :class="getPnLClass(stock, 'text')">{{ getPnLValue(stock) }}</span>
+                        <span class="text-xl font-bold text-white nums font-mono">${{ stock.currentPrice || '-' }}</span>
+                    </div>
                 </div>
             </div>
         </transition-group>
     </main>
 
-    <button v-if="currentUser" @click="showAddModal = true" class="fixed bottom-8 right-6 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-900/50 flex items-center justify-center transition transform hover:scale-105 active:scale-90 z-40">
+    <button v-if="currentUser" @click="openAddModal" class="fixed bottom-8 right-6 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-900/50 flex items-center justify-center transition transform hover:scale-105 active:scale-90 z-40">
         <span class="material-icons-round text-3xl">add</span>
     </button>
 
     <div v-if="showAddModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-slate-700">
-            <h3 class="text-lg font-bold mb-4 text-white">新增美股追蹤</h3>
+            <h3 class="text-lg font-bold mb-4 text-white">新增美股</h3>
             <div class="space-y-4">
-                <input v-model="newStock.code" placeholder="代號 (如: NVDA)" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none transition font-mono uppercase">
-                <input type="number" v-model="newStock.cost" placeholder="成本 (如: 450.50)" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none transition font-mono">
+                <input v-model="newStock.code" placeholder="代號 (如: NVDA)" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none uppercase font-mono">
+                <input type="number" v-model="newStock.cost" placeholder="成本" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none font-mono">
+                <input type="date" v-model="newStock.investDate" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none font-mono">
             </div>
             <div class="flex gap-3 mt-8">
-                <button @click="showAddModal = false" class="flex-1 py-3 rounded-xl text-slate-400 bg-slate-700/50 hover:bg-slate-700 transition">取消</button>
-                <button @click="confirmAddStock" :disabled="isSaving" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-500 transition disabled:opacity-50">{{ isSaving ? '儲存中...' : '確認新增' }}</button>
+                <button @click="showAddModal = false" class="flex-1 py-3 rounded-xl text-slate-400 bg-slate-700/50">取消</button>
+                <button @click="confirmAddStock" :disabled="isSaving" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold">{{ isSaving ? '...' : '新增' }}</button>
             </div>
         </div>
     </div>
@@ -122,17 +112,18 @@
     import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
-    // ⚠️ 您的 Firebase Config
+    // 您的 Config (已自動填入)
     const firebaseConfig = {
-        apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
-        authDomain: "stock-app-1f470.firebaseapp.com",
-        projectId: "stock-app-1f470",
-        storageBucket: "stock-app-1f470.firebasestorage.app",
-        messagingSenderId: "474136651144",
-        appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
+  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
+  authDomain: "stock-app-1f470.firebaseapp.com",
+  databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "stock-app-1f470",
+  storageBucket: "stock-app-1f470.firebasestorage.app",
+  messagingSenderId: "474136651144",
+  appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
     };
 
     let db, auth, functions;
@@ -140,110 +131,117 @@
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        
-        // ⚠️ 注意：這裡不填參數，預設使用 us-central1 (美國)
-        // 這是最安全的設定，除非您確定您的 Functions 在別的地方
+        // 預設區域 (美國)，如果之前有改動區域請在這裡調整
         functions = getFunctions(app); 
-        
-    } catch(e) { console.error("Init Failed", e); }
+    } catch(e) { console.error("Firebase Init Failed", e); }
 
     createApp({
         setup() {
-            // ... (前面的變數定義不用變) ...
             const isGlobalLoading = ref(true);
             const currentUser = ref(null);
             const showAddModal = ref(false);
             const isUpdatingPrices = ref(false);
             const isSaving = ref(false);
-            const statusMsg = ref("正在連線...");
+            const statusMsg = ref("連線中...");
             const statusColor = ref("bg-yellow-500");
             const stocks = ref([]);
-            const notices = ref([]);
             const newStock = ref({ code: '', cost: '', investDate: '' });
             const localMarketData = ref({}); 
 
-            // ... (onMounted 部分不用變) ...
+            const getTodayDate = () => new Date().toISOString().split('T')[0];
+            const openAddModal = () => { newStock.value = { code: '', cost: '', investDate: getTodayDate() }; showAddModal.value = true; };
+
             onMounted(() => {
-                 if(!db || !auth) { statusMsg.value = "Config Error"; isGlobalLoading.value = false; return; }
-                 onAuthStateChanged(auth, u => { currentUser.value = u; statusMsg.value = u ? "已登入" : "訪客"; });
-                 
-                 const q = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
-                 onSnapshot(q, snap => {
-                     statusColor.value = "bg-green-500";
-                     stocks.value = snap.docs.map(d => {
-                         const data = d.data();
-                         const m = localMarketData.value[d.id] || {};
-                         return { id: d.id, ...data, currentPrice: m.price || data.cost, lastUpdate: m.time };
-                     });
-                     setTimeout(()=>isGlobalLoading.value=false, 500);
-                 });
-                 const qN = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                 onSnapshot(qN, snap => notices.value = snap.docs.map(d => ({id:d.id, ...d.data()})));
+                if(!db) { isGlobalLoading.value = false; statusMsg.value = "Config Error"; return; }
+                onAuthStateChanged(auth, u => { currentUser.value = u; statusMsg.value = u ? "已登入" : "訪客"; });
+
+                const q = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
+                onSnapshot(q, snap => {
+                    statusColor.value = "bg-green-500";
+                    const list = snap.docs.map(d => {
+                        const data = d.data();
+                        const m = localMarketData.value[d.id] || {};
+                        return { id: d.id, ...data, currentPrice: m.price || data.cost, lastUpdate: m.time };
+                    });
+                    stocks.value = list;
+                    setTimeout(() => isGlobalLoading.value = false, 500);
+                    
+                    if(list.length > 0 && Object.keys(localMarketData.value).length === 0) {
+                        callBackendForPrices();
+                    }
+                });
             });
 
-            // 🔥 診斷專用版：更新報價函式 🔥
+            // 🔥 修正後的後端呼叫邏輯 🔥
             const callBackendForPrices = async () => {
                 if (stocks.value.length === 0) return;
                 isUpdatingPrices.value = true;
-                
                 try {
                     const symbols = stocks.value.map(s => s.code);
-                    console.log("1. 準備呼叫後端，股票:", symbols);
-                    
                     const fn = httpsCallable(functions, 'getStockQuotes');
-                    console.log("2. 發送請求...");
                     
-                    const result = await fn({ symbols: symbols });
-                    console.log("3. 後端回應成功:", result);
+                    console.log("正在更新報價...");
+                    const result = await fn({ symbols });
                     
-                    const prices = result.data;
+                    // ⚠️ 關鍵修正：後端回傳的是 { prices: {...}, debug: {...} }
+                    // 所以我們要取 result.data.prices
+                    const priceMap = result.data.prices || {}; 
+                    const debugLog = result.data.debug;
+
+                    console.log("後端回傳 Debug:", debugLog);
+
                     stocks.value.forEach(s => {
                         const code = s.code.toUpperCase();
-                        if(prices[code]) {
-                            localMarketData.value[s.id] = { price: prices[code], time: new Date() };
-                            s.currentPrice = prices[code];
+                        if (priceMap[code]) {
+                            localMarketData.value[s.id] = { price: priceMap[code], time: new Date() };
+                            s.currentPrice = priceMap[code];
                             s.lastUpdate = new Date();
                         }
                     });
-                    
-                } catch (error) {
-                    console.error("錯誤詳情:", error);
-                    
-                    // 🚨 這裡會彈出具體的錯誤原因 🚨
-                    let errorText = "未知錯誤";
-                    if (error.code === 'internal') errorText = "後端程式碼崩潰 (可能是 axios 沒安裝或 Key 錯誤)";
-                    if (error.code === 'not-found') errorText = "找不到後端 (區域 Region 設定錯誤)";
-                    if (error.code === 'unavailable') errorText = "網路連線問題或後端正在冷啟動";
-                    
-                    alert(`更新失敗！\n錯誤代碼: ${error.code}\n推測原因: ${errorText}\n詳細訊息: ${error.message}`);
+                } catch (e) {
+                    console.error(e);
+                    alert("更新失敗：" + e.message);
                 } finally {
                     isUpdatingPrices.value = false;
                 }
             };
 
-            // ... (剩下的 Auth, Add, Remove 函式保持不變) ...
-            const handleAuth = async () => { if(currentUser.value){ if(confirm("登出?")) signOut(auth); }else{ const e=prompt("Email"), p=prompt("Pwd"); if(e&&p) signInWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); } };
-            const confirmAddStock = async () => { try{ isSaving.value=true; await addDoc(collection(db,"stocks"),{code:newStock.value.code.toUpperCase(), cost:parseFloat(newStock.value.cost), investDate:newStock.value.investDate||new Date().toISOString().split('T')[0], createdAt:serverTimestamp()}); showAddModal.value=false; setTimeout(callBackendForPrices,500); }catch(e){alert(e.message)}finally{isSaving.value=false} };
-            const addNotice = async () => { const t=prompt("公告:"); if(t) await addDoc(collection(db,"notices"),{content:t, dateStr:`${new Date().getMonth()+1}/${new Date().getDate()}`, createdAt:serverTimestamp()}); };
-            const removeStock = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"stocks",id)); };
-            const removeNotice = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"notices",id)); };
-            const getTodayDate = () => new Date().toISOString().split('T')[0];
-            const openAddModal = () => { newStock.value={code:'',cost:'',investDate:getTodayDate()}; showAddModal.value=true; };
+            const handleAuth = async () => {
+                if(currentUser.value) { if(confirm("登出?")) signOut(auth); }
+                else {
+                    const e = prompt("Email"), p = prompt("Pwd");
+                    if(e && p) signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
+                }
+            };
 
-            // 輔助函式
+            const confirmAddStock = async () => {
+                if(!currentUser.value) return alert("請登入");
+                isSaving.value = true;
+                try {
+                    await addDoc(collection(db, "stocks"), {
+                        code: newStock.value.code.toUpperCase(),
+                        cost: parseFloat(newStock.value.cost),
+                        investDate: newStock.value.investDate || getTodayDate(),
+                        createdAt: serverTimestamp()
+                    });
+                    showAddModal.value = false;
+                    setTimeout(callBackendForPrices, 500);
+                } catch(e) { alert(e.message); } finally { isSaving.value = false; }
+            };
+
+            const removeStock = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"stocks",id)); };
             const getPnLPercent = (s) => { const c=s.currentPrice||s.cost; return ((c-s.cost)/s.cost*100).toFixed(2); };
             const getPnLValue = (s) => { const c=s.currentPrice||s.cost; return (c-s.cost).toFixed(2); };
-            const getPnLClass = (s,t) => { const up=(s.currentPrice||s.cost)>=s.cost; if(t==='text')return up?'text-up':'text-down'; return up?'bg-up':'bg-down'; };
+            const getPnLClass = (s,t) => { const up=(s.currentPrice||s.cost)>=s.cost; return t==='text'?(up?'text-up':'text-down'):(up?'bg-up':'bg-down'); };
             const formatTime = (d) => d ? d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) : '';
 
             return {
                 isGlobalLoading, currentUser, handleAuth, showAddModal, isUpdatingPrices, isSaving, statusMsg, statusColor,
-                stocks, notices, newStock, openAddModal, confirmAddStock, removeStock, addNotice, removeNotice,
+                stocks, newStock, openAddModal, confirmAddStock, removeStock,
                 callBackendForPrices, getPnLPercent, getPnLClass, getPnLValue, formatTime
             };
         }
     }).mount('#app');
 </script>
-
 </body>
 </html>
