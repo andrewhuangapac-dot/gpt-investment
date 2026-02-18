@@ -58,7 +58,7 @@
                 json.holdings.forEach(sym => {
                     // 🟢 修改處：改為 <a> 標籤，並連結到 Google Finance
                     tags += `
-                    <a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" 
+                    <a href="https://www.google.com/finance/quote/${sym}" target="_blank" 
                        style="text-decoration: none; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; transition: all 0.2s;"
                        onmouseover="this.style.background='#dbeafe';this.style.transform='translateY(-1px)'"
                        onmouseout="this.style.background='#eff6ff';this.style.transform='translateY(0)'">
