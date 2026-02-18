@@ -3,7 +3,7 @@
     <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
         <div>
             <div id="widget-title-text" style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;">AI 投資組合</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">即時同步 • 智能分析</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">GPT + Gemini</div>
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
             <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></div>
@@ -22,7 +22,7 @@
 
     <div style="padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase;">📢 近 5 日操作建議</div>
+            <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase;">📢 近 7 日操作建議</div>
             <div style="font-size: 10px; color: #94a3b8;">Newest First</div>
         </div>
         <div id="rec-list" style="max-height: 450px; overflow-y: auto; scrollbar-width: thin;">
@@ -30,7 +30,7 @@
     </div>
 
     <div style="background: #f1f5f9; padding: 8px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px solid #e2e8f0;">
-        Powered by Gemini 1.5 Pro
+        Powered by Gemini 2.5 Pro
     </div>
 </div>
 
@@ -45,25 +45,32 @@
     const WIDGET_TITLE = '美股 AI 投資建議'; // 自定義標題
     // ============================================================
 
-    const DAYS_LIMIT = 5;
+    const DAYS_LIMIT = 7;
     document.getElementById('widget-title-text').innerText = WIDGET_TITLE;
 
     fetch(API_URL + '?action=public_board')
         .then(res => res.json())
         .then(json => {
-            // 1. 持倉
+            // --- 1. 渲染持倉代號 (修改為連結) ---
             const holdingsContainer = document.getElementById('holdings-container');
             if (json.holdings && json.holdings.length > 0) {
                 let tags = '';
                 json.holdings.forEach(sym => {
-                    tags += `<span style="background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block;">${sym}</span>`;
+                    // 🟢 修改處：改為 <a> 標籤，並連結到 Google Finance
+                    tags += `
+                    <a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" 
+                       style="text-decoration: none; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; transition: all 0.2s;"
+                       onmouseover="this.style.background='#dbeafe';this.style.transform='translateY(-1px)'"
+                       onmouseout="this.style.background='#eff6ff';this.style.transform='translateY(0)'">
+                       ${sym} ↗
+                    </a>`;
                 });
                 holdingsContainer.innerHTML = tags;
             } else {
                 holdingsContainer.innerHTML = '<span style="font-size:11px; color:#cbd5e1; font-style: italic;">目前無持倉</span>';
             }
 
-            // 2. 建議列表
+            // --- 2. 建議列表 ---
             const list = document.getElementById('rec-list');
             if (!json.data || json.data.length === 0) { renderEmpty(list, "暫無公開建議"); return; }
 
@@ -76,7 +83,7 @@
                 .filter(item => { const d = new Date(item.date); return d >= cutoffDate; })
                 .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            if (validData.length === 0) { renderEmpty(list, "近 5 日無新建議"); return; }
+            if (validData.length === 0) { renderEmpty(list, "近 7 日無新建議"); return; }
             
             let html = '';
             validData.forEach((item, index) => {
@@ -86,7 +93,6 @@
                 const typeText = isBuy ? '買入' : '賣出';
                 const dateShort = item.date.substring(5);
                 
-                // 處理 AI 內容
                 const hasAnalysis = item.analysis && item.analysis.trim() !== '';
                 const analysisHtml = hasAnalysis ? marked.parse(item.analysis) : '';
                 const uniqueId = `analysis-pub-${index}`;
@@ -96,7 +102,9 @@
                 <div style="padding: 12px 0; border-bottom: 1px dashed #e2e8f0; display: flex; flex-direction: column; gap: 4px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-weight: 800; color: #334155; font-size: 15px;">${item.symbol}</span>
+                            <a href="https://www.google.com/finance/quote/${item.symbol}:NASDAQ" target="_blank" style="text-decoration:none;">
+                                <span style="font-weight: 800; color: #334155; font-size: 15px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#334155'">${item.symbol}</span>
+                            </a>
                             <span style="font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${dateShort}</span>
                         </div>
                         <div style="text-align: right;">
