@@ -2,8 +2,8 @@
     
     <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <div id="widget-title-text" style="font-weight: 800; font-size: 17px; letter-spacing: 0.5px;">美股 AI 投資建議</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">GPT + Gemini</div>
+            <div id="widget-title-text" style="font-weight: 800; font-size: 18px; letter-spacing: 0.5px;">載入中...</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">Gemini 1.5 Pro • 數據同步</div>
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
             <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></div>
@@ -13,10 +13,10 @@
 
     <div style="padding: 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
         <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-            💼 目前持有標的 (Current Holdings)
+            💼 目前持有標的 (Holdings)
         </div>
         <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <span style="font-size: 12px; color: #94a3b8;">載入中...</span>
+            <span style="font-size: 12px; color: #94a3b8;">數據同步中...</span>
         </div>
     </div>
 
@@ -30,7 +30,7 @@
     </div>
 
     <div style="background: #f1f5f9; padding: 8px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px solid #e2e8f0;">
-        Powered by Gemini 2.5 Pro
+        Powered by Gemini 1.5 Pro
     </div>
 </div>
 
@@ -39,29 +39,29 @@
 <script>
 (function() {
     // ============================================================
-    // 🔴 請將您的 Google Apps Script 網址貼在下方引號內
+    // 🔴 設定區
     // ============================================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbyXBfSISMPrZtiSt24Wsao-9V7bN5SZ_FjENs48tRiOixqzgxrac0tMa1n9F-Ril6ad/exec'; 
-    const WIDGET_TITLE = '美股 AI 投資建議'; // 自定義標題
+    const WIDGET_TITLE = '美股 AI 投資建議'; // 這裡定義網頁與看板名稱
     // ============================================================
 
     const DAYS_LIMIT = 7;
+
+    // 1. 立即同步更新看板標題與瀏覽器分頁標題
     document.getElementById('widget-title-text').innerText = WIDGET_TITLE;
+    document.title = WIDGET_TITLE; 
 
     fetch(API_URL + '?action=public_board')
         .then(res => res.json())
         .then(json => {
-            // --- 1. 渲染持倉代號 (修改為連結) ---
+            // --- 持倉渲染 ---
             const holdingsContainer = document.getElementById('holdings-container');
             if (json.holdings && json.holdings.length > 0) {
                 let tags = '';
                 json.holdings.forEach(sym => {
-                    // 🟢 修改處：改為 <a> 標籤，並連結到 Google Finance
                     tags += `
                     <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" 
-                       style="text-decoration: none; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; transition: all 0.2s;"
-                       onmouseover="this.style.background='#dbeafe';this.style.transform='translateY(-1px)'"
-                       onmouseout="this.style.background='#eff6ff';this.style.transform='translateY(0)'">
+                       style="text-decoration: none; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; transition: all 0.2s;">
                        ${sym} ↗
                     </a>`;
                 });
@@ -70,62 +70,58 @@
                 holdingsContainer.innerHTML = '<span style="font-size:11px; color:#cbd5e1; font-style: italic;">目前無持倉</span>';
             }
 
-            // --- 2. 建議列表 ---
+            // --- 建議列表渲染 ---
             const list = document.getElementById('rec-list');
             if (!json.data || json.data.length === 0) { renderEmpty(list, "暫無公開建議"); return; }
 
-            // 過濾 + 排序
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - DAYS_LIMIT);
             cutoffDate.setHours(0, 0, 0, 0);
 
             const validData = json.data
-                .filter(item => { const d = new Date(item.date); return d >= cutoffDate; })
+                .filter(item => new Date(item.date) >= cutoffDate)
                 .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            if (validData.length === 0) { renderEmpty(list, "近 7 日無新建議"); return; }
+            if (validData.length === 0) { renderEmpty(list, `近 ${DAYS_LIMIT} 日無新建議`); return; }
             
             let html = '';
             validData.forEach((item, index) => {
                 const isBuy = item.type === 'Buy';
                 const color = isBuy ? '#16a34a' : '#dc2626';
                 const bg = isBuy ? '#dcfce7' : '#fee2e2';
-                const typeText = isBuy ? '買入' : '賣出';
                 const dateShort = item.date.substring(5);
-                
-                const hasAnalysis = item.analysis && item.analysis.trim() !== '';
-                const analysisHtml = hasAnalysis ? marked.parse(item.analysis) : '';
-                const uniqueId = `analysis-pub-${index}`;
                 const formattedPrice = item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const hasAnalysis = item.analysis && item.analysis.trim() !== '';
+                const uniqueId = `analysis-pub-${index}`;
 
                 html += `
                 <div style="padding: 12px 0; border-bottom: 1px dashed #e2e8f0; display: flex; flex-direction: column; gap: 4px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <a href="https://www.google.com/finance/quote/${item.symbol}:NASDAQ" target="_blank" style="text-decoration:none;">
-                                <span style="font-weight: 800; color: #334155; font-size: 15px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#334155'">${item.symbol}</span>
+                                <span style="font-weight: 800; color: #334155; font-size: 15px;">${item.symbol}</span>
                             </a>
                             <span style="font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${dateShort}</span>
                         </div>
                         <div style="text-align: right;">
-                             <span style="background:${bg}; color:${color}; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${typeText}</span>
+                             <span style="background:${bg}; color:${color}; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${isBuy ? '買入' : '賣出'}</span>
                         </div>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
                         <span style="font-size: 13px; font-weight: 600; color: #475569;">$${formattedPrice}</span>
                         <div style="font-size: 11px; color: #64748b; background: #fff7ed; padding: 2px 8px; border-radius: 99px; border: 1px solid #ffedd5;">
-                            AI 參考數: <b style="color: #ea580c;">${item.count}</b>
+                            AI 參考: <b style="color: #ea580c;">${item.count}</b>
                         </div>
                     </div>
 
                     ${hasAnalysis ? `
                     <div style="margin-top: 8px;">
-                        <button onclick="var el = document.getElementById('${uniqueId}'); var btn = this; if(el.style.display==='none'){el.style.display='block';btn.innerText='▲ 收起觀點';}else{el.style.display='none';btn.innerText='▼ 查看 AI 觀點';}" style="background:none; border:none; color:#3b82f6; font-size:11px; cursor:pointer; text-decoration:underline; padding:0; display:flex; align-items:center; gap:2px;">
+                        <button onclick="var el = document.getElementById('${uniqueId}'); var btn = this; if(el.style.display==='none'){el.style.display='block';btn.innerText='▲ 收起觀點';}else{el.style.display='none';btn.innerText='▼ 查看 AI 觀點';}" style="background:none; border:none; color:#3b82f6; font-size:11px; cursor:pointer; text-decoration:underline; padding:0; display:flex; align-items:center;">
                             ▼ 查看 AI 觀點
                         </button>
                         <div id="${uniqueId}" style="display: none; margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0; text-align: justify;">
-                            ${analysisHtml}
+                            ${marked.parse(item.analysis)}
                         </div>
                     </div>` : ''}
                 </div>`;
@@ -135,7 +131,7 @@
         .catch(err => {
             console.error(err);
             document.getElementById('holdings-container').innerText = '載入失敗';
-            renderEmpty(document.getElementById('rec-list'), "連線失敗，請檢查設定");
+            renderEmpty(document.getElementById('rec-list'), "連線失敗，請檢查網路");
         });
 
     function renderEmpty(element, message) {
@@ -143,3 +139,4 @@
     }
 })();
 </script>
+
