@@ -118,7 +118,7 @@
             const holdingsBox = document.getElementById('holdings-container');
             if (json.holdings && json.holdings.length > 0) {
                 holdingsBox.innerHTML = json.holdings.map(sym => `
-                    <a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" 
+                    <a href="https://www.google.com/search?q=finance+${sym}" 
                        class="btn-tap no-underline bg-white text-blue-600 border border-slate-100 px-4 py-2.5 rounded-2xl text-sm font-black shadow-sm flex items-center gap-1 transition-all active:bg-slate-50">
                        ${sym} <span class="text-[10px] opacity-20">↗</span>
                     </a>
