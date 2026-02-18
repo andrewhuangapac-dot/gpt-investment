@@ -1,305 +1,103 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GPT投資看板 (Final Fix)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<div id="ai-portfolio-widget" style="font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; max-width: 350px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); background: white; margin: 0 auto;">
     
-    <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #0f172a; color: #e2e8f0; }
-        .font-mono { font-family: 'Roboto Mono', monospace; }
-        .nums { font-variant-numeric: tabular-nums; }
-        .text-up { color: #4ade80; } .text-down { color: #f87171; }
-        .bg-up { background-color: rgba(74, 222, 128, 0.15); } .bg-down { background-color: rgba(248, 113, 113, 0.15); }
-        .list-enter-active, .list-leave-active { transition: all 0.4s ease; }
-        .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-20px); }
-        .fade-out-leave-active { transition: opacity 0.5s ease; }
-        .fade-out-leave-to { opacity: 0; }
-    </style>
-</head>
-<body>
-
-<div id="app" class="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl border-x border-slate-800 flex flex-col">
-
-    <transition name="fade-out">
-        <div v-if="isGlobalLoading" class="fixed inset-0 z-[100] bg-slate-900 flex flex-col items-center justify-center">
-            <div class="w-12 h-12 border-4 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-            <h1 class="text-xl font-bold text-white tracking-wide animate-pulse">Loading...</h1>
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;">AI 投資組合看板</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">即時同步 • 智能分析</div>
         </div>
-    </transition>
-
-    <header class="bg-slate-900/90 backdrop-blur px-5 py-4 sticky top-0 z-30 border-b border-slate-800">
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold text-white tracking-wide">GPT投資看板 <span class="text-xs bg-blue-900 px-1 rounded text-blue-300">Pro</span></h1>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="w-2 h-2 rounded-full transition-colors duration-500" :class="statusColor"></span>
-                    <span class="text-xs text-slate-400">{{ statusMsg }}</span>
-                </div>
-            </div>
-            <button @click="handleAuth" class="flex items-center gap-2 px-3 py-1.5 rounded-full border transition active:scale-95" :class="currentUser ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'">
-                <span class="material-icons-round text-sm">{{ currentUser ? 'logout' : 'login' }}</span>
-                <span class="text-xs font-bold">{{ currentUser ? '登出' : '管理員' }}</span>
-            </button>
-        </div>
-    </header>
-
-    <div class="px-4 pt-4">
-        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-sm">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-2">
-                <h3 class="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
-                    <span class="material-icons-round text-sm">campaign</span> 最新公告
-                </h3>
-                <button v-if="currentUser" @click="addNotice" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-full text-white transition flex items-center gap-1">
-                    <span class="material-icons-round text-xs">edit</span> 發布
-                </button>
-            </div>
-            <div class="space-y-3 min-h-[40px]">
-                <p v-if="notices.length === 0" class="text-xs text-slate-500 text-center py-2">目前無公告</p>
-                <transition-group name="list">
-                    <div v-for="(notice, index) in notices" :key="notice.id" class="relative pl-4 group">
-                        <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-slate-700 group-last:hidden"></div>
-                        <div class="absolute left-[-2px] top-2 w-1.5 h-1.5 rounded-full" :class="index === 0 ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-slate-600'"></div>
-                        <div class="flex items-start gap-3 pb-1">
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5" :class="index === 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'">{{ notice.dateStr || 'Now' }}</span>
-                            <div class="flex-1 flex justify-between items-start">
-                                <p class="text-sm leading-snug break-all" :class="index === 0 ? 'text-white font-medium' : 'text-slate-300'">{{ notice.content }}</p>
-                                <button v-if="currentUser" @click="removeNotice(notice.id)" class="text-slate-600 hover:text-red-400 ml-2 opacity-0 group-hover:opacity-100 transition"><span class="material-icons-round text-xs">close</span></button>
-                            </div>
-                        </div>
-                    </div>
-                </transition-group>
-            </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></div>
+            <span style="font-size: 10px; color: #cbd5e1;">LIVE</span>
         </div>
     </div>
 
-    <main class="flex-1 px-4 py-4 space-y-4 pb-32">
-        <div class="flex justify-between items-end px-1">
-            <h3 class="text-slate-400 text-sm font-medium">我的持倉</h3>
-            <button @click="callBackendForPrices" :disabled="isUpdatingPrices" class="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300 transition active:scale-95 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 disabled:opacity-50">
-                <span class="material-icons-round text-sm" :class="{'animate-spin': isUpdatingPrices}">cloud_sync</span> 
-                {{ isUpdatingPrices ? '更新中...' : '刷新報價' }}
-            </button>
+    <div style="padding: 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+        <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+            💼 目前持有標的 (Current Holdings)
         </div>
-
-        <div v-if="stocks.length === 0 && !isGlobalLoading" class="text-center py-16 opacity-50">
-            <span class="material-icons-round text-4xl mb-2">savings</span>
-            <p class="text-sm">暫無持倉數據</p>
-        </div>
-
-        <transition-group name="list">
-            <div v-for="stock in stocks" :key="stock.id" class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700/60 relative hover:border-slate-600 transition duration-300 group">
-                <button v-if="currentUser" @click="removeStock(stock.id)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-10 hover:bg-red-600 transition"><span class="material-icons-round text-xs">close</span></button>
-                <div class="flex justify-between items-center mb-3">
-                    <div class="flex flex-col">
-                        <h4 class="font-bold text-white text-2xl font-mono tracking-wider">{{ stock.code }}</h4>
-                        <div class="flex gap-2 mt-1">
-                            <span class="text-xs text-slate-500 font-mono">Cost: ${{ stock.cost }}</span>
-                            <span v-if="stock.investDate" class="text-[10px] text-blue-300 bg-blue-900/30 px-1.5 py-0.5 rounded font-mono">{{ stock.investDate.replace(/-/g, '/') }}</span>
-                        </div>
-                    </div>
-                    <div class="text-right px-4 py-2 rounded-lg transition-colors duration-500" :class="getPnLClass(stock, 'bg')">
-                        <p class="text-2xl font-bold nums leading-none" :class="getPnLClass(stock, 'text')">{{ getPnLPercent(stock) }}%</p>
-                    </div>
-                </div>
-                <div class="flex justify-between items-center text-sm border-t border-slate-700/80 pt-3 mt-1">
-                    <span class="text-slate-400 text-xs flex items-center gap-1">現價 <span v-if="stock.lastUpdate" class="text-[10px] opacity-60">({{ formatTime(stock.lastUpdate) }})</span></span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-mono" :class="getPnLClass(stock, 'text')">{{ getPnLValue(stock) }}</span>
-                        <span class="text-xl font-bold text-white nums font-mono">${{ stock.currentPrice || '-' }}</span>
-                    </div>
-                </div>
-            </div>
-        </transition-group>
-    </main>
-
-    <button v-if="currentUser" @click="openAddModal" class="fixed bottom-8 right-6 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-xl shadow-blue-900/50 flex items-center justify-center transition transform hover:scale-105 active:scale-90 z-40">
-        <span class="material-icons-round text-3xl">add</span>
-    </button>
-
-    <div v-if="showAddModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-slate-700">
-            <h3 class="text-lg font-bold mb-4 text-white">新增美股</h3>
-            <div class="space-y-4">
-                <input v-model="newStock.code" placeholder="代號 (如: NVDA)" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none uppercase font-mono">
-                <input type="number" v-model="newStock.cost" placeholder="成本" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none font-mono">
-                <input type="date" v-model="newStock.investDate" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none font-mono">
-            </div>
-            <div class="flex gap-3 mt-8">
-                <button @click="showAddModal = false" class="flex-1 py-3 rounded-xl text-slate-400 bg-slate-700/50">取消</button>
-                <button @click="confirmAddStock" :disabled="isSaving" class="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold">{{ isSaving ? '...' : '新增' }}</button>
-            </div>
+        <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="font-size: 12px; color: #94a3b8;">載入中...</span>
         </div>
     </div>
 
+    <div style="padding: 16px;">
+        <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">
+            📢 最新 AI 操作建議
+        </div>
+        <div id="rec-list" style="max-height: 300px; overflow-y: auto;">
+            </div>
+    </div>
+
+    <div style="background: #f1f5f9; padding: 8px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px solid #e2e8f0;">
+        Powered by Gemini 1.5 Pro
+    </div>
 </div>
 
-<script type="module">
-    import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+<script>
+(function() {
+    // ============================================================
+    // 🔴 請將您的 Google Apps Script 網址貼在下方引號內
+    // ============================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx1o7gEqqCYlESqQoFHfrYcSxcEaTR4mJAZWUe2MHZ5tLuvAAYy94SheQQP5L8AkIUV/exec'; 
+    // ============================================================
 
-    // 您提供的 Config
-    const firebaseConfig = {
-  apiKey: "AIzaSyACJJPHaq3VCpnh1SyCehiwTiQf3IEiY78",
-  authDomain: "stock-app-1f470.firebaseapp.com",
-  databaseURL: "https://stock-app-1f470-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "stock-app-1f470",
-  storageBucket: "stock-app-1f470.firebasestorage.app",
-  messagingSenderId: "474136651144",
-  appId: "1:474136651144:web:4ff02c92036c4b4ca8063d"
-    };
+    fetch(API_URL + '?action=public_board')
+        .then(res => res.json())
+        .then(json => {
+            // 1. 渲染持倉代號 (Tag Cloud 風格)
+            const holdingsContainer = document.getElementById('holdings-container');
+            if (json.holdings && json.holdings.length > 0) {
+                let tags = '';
+                json.holdings.forEach(sym => {
+                    tags += `<span style="background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block;">${sym}</span>`;
+                });
+                holdingsContainer.innerHTML = tags;
+            } else {
+                holdingsContainer.innerHTML = '<span style="font-size:11px; color:#cbd5e1; font-style: italic;">目前無持倉</span>';
+            }
 
-    let db, auth, functions;
-    try {
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        // 使用預設區域 us-central1 (因為您的 index.js 也是預設)
-        functions = getFunctions(app); 
-    } catch(e) { console.error("Firebase Init Failed", e); }
-
-    createApp({
-        setup() {
-            const isGlobalLoading = ref(true);
-            const currentUser = ref(null);
-            const showAddModal = ref(false);
-            const isUpdatingPrices = ref(false);
-            const isSaving = ref(false);
-            const statusMsg = ref("連線中...");
-            const statusColor = ref("bg-yellow-500");
-            const stocks = ref([]);
-            const notices = ref([]);
-            const newStock = ref({ code: '', cost: '', investDate: '' });
-            const localMarketData = ref({}); 
-
-            const getTodayDate = () => new Date().toISOString().split('T')[0];
-            const openAddModal = () => { newStock.value = { code: '', cost: '', investDate: getTodayDate() }; showAddModal.value = true; };
-
-            onMounted(() => {
-                if(!db) { isGlobalLoading.value = false; statusMsg.value = "Config Error"; return; }
-                onAuthStateChanged(auth, u => { currentUser.value = u; statusMsg.value = u ? "已登入" : "訪客"; });
-
-                // 1. 股票監聽
-                const q = query(collection(db, "stocks"), orderBy("createdAt", "desc"));
-                onSnapshot(q, snap => {
-                    statusColor.value = "bg-green-500";
-                    const list = snap.docs.map(d => {
-                        const data = d.data();
-                        const m = localMarketData.value[d.id] || {};
-                        return { id: d.id, ...data, currentPrice: m.price || data.cost, lastUpdate: m.time };
-                    });
-                    stocks.value = list;
-                    setTimeout(() => isGlobalLoading.value = false, 500);
+            // 2. 渲染建議列表
+            const list = document.getElementById('rec-list');
+            if (!json.data || json.data.length === 0) {
+                list.innerHTML = '<div style="text-align:center;font-size:12px;color:#cbd5e1;padding:20px;">暫無公開建議</div>';
+                return;
+            }
+            
+            let html = '';
+            json.data.forEach(item => {
+                const isBuy = item.type === 'Buy';
+                const color = isBuy ? '#16a34a' : '#dc2626'; // 綠買紅賣
+                const bg = isBuy ? '#dcfce7' : '#fee2e2';
+                const typeText = isBuy ? '買入' : '賣出';
+                // 處理日期格式 (去掉年份，只留 MM-DD)
+                const dateShort = item.date.substring(5);
+                
+                html += `
+                <div style="padding: 12px 0; border-bottom: 1px dashed #e2e8f0; display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 800; color: #334155; font-size: 15px;">${item.symbol}</span>
+                            <span style="font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${dateShort}</span>
+                        </div>
+                        <div style="text-align: right;">
+                             <span style="background:${bg}; color:${color}; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${typeText}</span>
+                        </div>
+                    </div>
                     
-                    if(list.length > 0 && Object.keys(localMarketData.value).length === 0) {
-                        callBackendForPrices();
-                    }
-                });
-
-                // 2. 補回：公告監聽
-                const qNotices = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                onSnapshot(qNotices, snap => {
-                    notices.value = snap.docs.map(d => ({id:d.id, ...d.data()}));
-                });
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                        <span style="font-size: 13px; font-weight: 600; color: #475569;">$${item.price.toLocaleString()}</span>
+                        <div style="font-size: 11px; color: #64748b; background: #fff7ed; padding: 2px 8px; border-radius: 99px; border: 1px solid #ffedd5;">
+                            AI 參考數: <b style="color: #ea580c;">${item.count}</b>
+                        </div>
+                    </div>
+                </div>`;
             });
-
-            // 🔥 修正：參數傳遞方式
-            const callBackendForPrices = async () => {
-                if (stocks.value.length === 0) return;
-                isUpdatingPrices.value = true;
-                try {
-                    const symbols = stocks.value.map(s => s.code);
-                    const fn = httpsCallable(functions, 'getStockQuotes');
-                    
-                    console.log("更新中...", symbols);
-                    // 這裡傳送 { symbols: [...] } 物件
-                    const result = await fn({ symbols: symbols });
-                    
-                    // 根據新版後端，回傳結構是 { prices: {...} }
-                    // 如果後端傳回錯誤，result.data.error 會有值
-                    if (result.data.error) {
-                        console.warn("後端回報錯誤:", result.data.error);
-                        alert("部分股價更新失敗，可能是代號錯誤");
-                    }
-
-                    const priceMap = result.data.prices || {}; 
-                    console.log("價格表:", priceMap);
-
-                    stocks.value.forEach(s => {
-                        const code = s.code.toUpperCase();
-                        if (priceMap[code]) {
-                            localMarketData.value[s.id] = { price: priceMap[code], time: new Date() };
-                            s.currentPrice = priceMap[code];
-                            s.lastUpdate = new Date();
-                        }
-                    });
-                } catch (e) {
-                    console.error(e);
-                    // 只有當真的是網絡斷線或後端掛掉時才彈窗
-                    // 忽略 JSON 解析錯誤，因為我們已經在後端做防呆了
-                    if(e.code !== 'internal') alert("連線錯誤：" + e.message);
-                } finally {
-                    isUpdatingPrices.value = false;
-                }
-            };
-
-            const handleAuth = async () => {
-                if(currentUser.value) { if(confirm("登出?")) signOut(auth); }
-                else {
-                    const e = prompt("Email"), p = prompt("Pwd");
-                    if(e && p) signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
-                }
-            };
-
-            const confirmAddStock = async () => {
-                if(!currentUser.value) return alert("請登入");
-                isSaving.value = true;
-                try {
-                    await addDoc(collection(db, "stocks"), {
-                        code: newStock.value.code.toUpperCase(),
-                        cost: parseFloat(newStock.value.cost),
-                        investDate: newStock.value.investDate || getTodayDate(),
-                        createdAt: serverTimestamp()
-                    });
-                    showAddModal.value = false;
-                    setTimeout(callBackendForPrices, 500);
-                } catch(e) { alert(e.message); } finally { isSaving.value = false; }
-            };
-
-            const addNotice = async () => {
-                const t = prompt("公告:"); 
-                if(t) {
-                     await addDoc(collection(db,"notices"),{content:t, dateStr:`${new Date().getMonth()+1}/${new Date().getDate()}`, createdAt:serverTimestamp()});
-                     // 自動清理舊公告
-                     const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                     const snap = await getDocs(q);
-                     if(snap.size > 5) {
-                         const toDel = snap.docs.slice(5);
-                         for(const d of toDel) deleteDoc(d.ref);
-                     }
-                }
-            };
-
-            const removeStock = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"stocks",id)); };
-            const removeNotice = async(id) => { if(confirm("刪除?")) deleteDoc(doc(db,"notices",id)); };
-            const getPnLPercent = (s) => { const c=s.currentPrice||s.cost; return ((c-s.cost)/s.cost*100).toFixed(2); };
-            const getPnLValue = (s) => { const c=s.currentPrice||s.cost; return (c-s.cost).toFixed(2); };
-            const getPnLClass = (s,t) => { const up=(s.currentPrice||s.cost)>=s.cost; return t==='text'?(up?'text-up':'text-down'):(up?'bg-up':'bg-down'); };
-            const formatTime = (d) => d ? d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}) : '';
-
-            return {
-                isGlobalLoading, currentUser, handleAuth, showAddModal, isUpdatingPrices, isSaving, statusMsg, statusColor,
-                stocks, notices, newStock, openAddModal, confirmAddStock, removeStock, addNotice, removeNotice,
-                callBackendForPrices, getPnLPercent, getPnLClass, getPnLValue, formatTime
-            };
-        }
-    }).mount('#app');
+            list.innerHTML = html;
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('holdings-container').innerText = '無法載入數據';
+            document.getElementById('rec-list').innerHTML = '<div style="text-align:center; color:#ef4444; font-size:12px; padding:10px;">連線失敗，請檢查 API URL</div>';
+        });
+})();
 </script>
-</body>
-</html>
