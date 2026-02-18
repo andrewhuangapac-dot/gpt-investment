@@ -1,76 +1,129 @@
-<div id="ai-portfolio-widget" style="font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; max-width: 350px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); background: white; margin: 0 auto;">
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <div id="widget-title-text" style="font-weight: 800; font-size: 18px; letter-spacing: 0.5px;">載入中...</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top:2px;">Gemini 2.5 Pro • 數據同步</div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></div>
-            <span style="font-size: 10px; color: #cbd5e1;">LIVE</span>
-        </div>
-    </div>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="美股建議">
+    
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2534/2534433.png">
 
-    <div style="padding: 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
-        <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-            💼 目前持有標的 (Holdings)
-        </div>
-        <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <span style="font-size: 12px; color: #94a3b8;">數據同步中...</span>
-        </div>
-    </div>
+    <title>美股 AI 投資建議</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
+    
+    <style>
+        :root {
+            --app-bg: #f8fafc;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--app-bg);
+            margin: 0;
+            padding: 0;
+            /* 防止橡皮筋回彈效果影響體驗 */
+            overscroll-behavior-y: none;
+        }
+        /* App 頂部導航列 */
+        .app-header {
+            padding-top: calc(var(--safe-top) + 15px);
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        /* 滾動區域優化 */
+        .scroll-container {
+            height: calc(100vh - 80px - var(--safe-top));
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: calc(var(--safe-bottom) + 20px);
+        }
+        /* 按鈕點擊效果 */
+        .btn-active:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+        }
+        /* 隱藏捲軸 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .markdown-content p { margin-bottom: 10px; }
+        .markdown-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 10px; }
+    </style>
+</head>
+<body class="no-scrollbar">
 
-    <div style="padding: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase;">📢 近 7 日操作建議</div>
-            <div style="font-size: 10px; color: #94a3b8;">Newest First</div>
-        </div>
-        <div id="rec-list" style="max-height: 450px; overflow-y: auto; scrollbar-width: thin;">
+    <header class="app-header px-5 pb-5 text-white">
+        <div class="flex justify-between items-end">
+            <div>
+                <h1 id="app-title" class="text-2xl font-black tracking-tight">美股 AI 投資建議</h1>
+                <p class="text-slate-400 text-xs mt-1 font-medium flex items-center gap-1">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    GPT + Gemini
+                </p>
             </div>
-    </div>
+            <div class="text-right">
+                <span class="text-[10px] bg-white/10 px-2 py-1 rounded-md text-slate-300 border border-white/10">v1.6 Live</span>
+            </div>
+        </div>
+    </header>
 
-    <div style="background: #f1f5f9; padding: 8px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px solid #e2e8f0;">
-        Powered by Gemini 1.5 Pro
-    </div>
-</div>
+    <main class="scroll-container px-4 py-6">
+        
+        <section class="mb-6">
+            <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">目前持有標的 (Holdings)</h2>
+            <div id="holdings-container" class="flex flex-wrap gap-2">
+                <div class="w-full py-4 text-center text-slate-300 text-sm italic bg-white rounded-2xl border border-slate-100">數據同步中...</div>
+            </div>
+        </section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
+        <section>
+            <div class="flex justify-between items-center mb-3 px-1">
+                <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">📢 7 日內操作建議</h2>
+                <span class="text-[10px] text-blue-500 font-bold">Newest</span>
+            </div>
+            <div id="rec-list" class="space-y-4">
+                </div>
+        </section>
+
+        <footer class="mt-10 text-center">
+            <p class="text-[10px] text-slate-300">© 2026 AI Investment Lab</p>
+            <p class="text-[9px] text-slate-200 mt-1">Powered by Google Gemini & Apps Script</p>
+        </footer>
+    </main>
 
 <script>
 (function() {
     // ============================================================
-    // 🔴 設定區
+    // 🔴 請填入您的 Apps Script 網址
     // ============================================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbyXBfSISMPrZtiSt24Wsao-9V7bN5SZ_FjENs48tRiOixqzgxrac0tMa1n9F-Ril6ad/exec'; 
-    const WIDGET_TITLE = '美股 AI 投資建議'; // 這裡定義網頁與看板名稱
+    const APP_NAME = '美股 AI 投資建議';
     // ============================================================
 
     const DAYS_LIMIT = 7;
-
-    // 1. 立即同步更新看板標題與瀏覽器分頁標題
-    document.getElementById('widget-title-text').innerText = WIDGET_TITLE;
-    document.title = WIDGET_TITLE; 
+    document.getElementById('app-title').innerText = APP_NAME;
 
     fetch(API_URL + '?action=public_board')
         .then(res => res.json())
         .then(json => {
-            // --- 持倉渲染 ---
+            // 1. 渲染持倉 (iOS 風格標籤)
             const holdingsContainer = document.getElementById('holdings-container');
             if (json.holdings && json.holdings.length > 0) {
-                let tags = '';
-                json.holdings.forEach(sym => {
-                    tags += `
+                holdingsContainer.innerHTML = json.holdings.map(sym => `
                     <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" 
-                       style="text-decoration: none; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; transition: all 0.2s;">
-                       ${sym} ↗
-                    </a>`;
-                });
-                holdingsContainer.innerHTML = tags;
+                       class="btn-active no-underline bg-white text-blue-600 border border-slate-100 px-4 py-2 rounded-2xl text-sm font-bold shadow-sm flex items-center gap-1 transition-all">
+                       ${sym} <span class="text-[10px] opacity-30">↗</span>
+                    </a>
+                `).join('');
             } else {
-                holdingsContainer.innerHTML = '<span style="font-size:11px; color:#cbd5e1; font-style: italic;">目前無持倉</span>';
+                holdingsContainer.innerHTML = '<div class="w-full py-4 text-center text-slate-300 text-sm bg-white rounded-2xl border border-slate-100 italic">目前無持倉</div>';
             }
 
-            // --- 建議列表渲染 ---
+            // 2. 渲染建議列表 (iOS Card 風格)
             const list = document.getElementById('rec-list');
             if (!json.data || json.data.length === 0) { renderEmpty(list, "暫無公開建議"); return; }
 
@@ -84,59 +137,79 @@
 
             if (validData.length === 0) { renderEmpty(list, `近 ${DAYS_LIMIT} 日無新建議`); return; }
             
-            let html = '';
-            validData.forEach((item, index) => {
+            list.innerHTML = validData.map((item, index) => {
                 const isBuy = item.type === 'Buy';
-                const color = isBuy ? '#16a34a' : '#dc2626';
-                const bg = isBuy ? '#dcfce7' : '#fee2e2';
+                const colorClass = isBuy ? 'text-green-600' : 'text-red-600';
+                const bgClass = isBuy ? 'bg-green-50' : 'bg-red-50';
                 const dateShort = item.date.substring(5);
                 const formattedPrice = item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const hasAnalysis = item.analysis && item.analysis.trim() !== '';
-                const uniqueId = `analysis-pub-${index}`;
+                const uniqueId = `analysis-app-${index}`;
 
-                html += `
-                <div style="padding: 12px 0; border-bottom: 1px dashed #e2e8f0; display: flex; flex-direction: column; gap: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <a href="https://www.google.com/finance/quote/${item.symbol}:NASDAQ" target="_blank" style="text-decoration:none;">
-                                <span style="font-weight: 800; color: #334155; font-size: 15px;">${item.symbol}</span>
-                            </a>
-                            <span style="font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${dateShort}</span>
+                return `
+                <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-50 transition-all">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-800 text-sm">
+                                ${item.symbol.substring(0,1)}
+                            </div>
+                            <div>
+                                <h3 class="font-black text-lg text-slate-800 leading-none">${item.symbol}</h3>
+                                <p class="text-[10px] text-slate-400 mt-1 font-bold">${item.date}</p>
+                            </div>
                         </div>
-                        <div style="text-align: right;">
-                             <span style="background:${bg}; color:${color}; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${isBuy ? '買入' : '賣出'}</span>
+                        <div class="${bgClass} ${colorClass} px-3 py-1 rounded-xl text-xs font-black uppercase">
+                            ${isBuy ? '買入 Buy' : '賣出 Sell'}
                         </div>
                     </div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                        <span style="font-size: 13px; font-weight: 600; color: #475569;">$${formattedPrice}</span>
-                        <div style="font-size: 11px; color: #64748b; background: #fff7ed; padding: 2px 8px; border-radius: 99px; border: 1px solid #ffedd5;">
-                            AI 參考: <b style="color: #ea580c;">${item.count}</b>
+                    <div class="flex justify-between items-center bg-slate-50 rounded-2xl p-3">
+                        <div>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">建議價格</p>
+                            <p class="text-base font-black text-slate-700">$${formattedPrice}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">AI 參考數</p>
+                            <p class="text-sm font-black text-orange-500">${item.count} 次分析</p>
                         </div>
                     </div>
 
                     ${hasAnalysis ? `
-                    <div style="margin-top: 8px;">
-                        <button onclick="var el = document.getElementById('${uniqueId}'); var btn = this; if(el.style.display==='none'){el.style.display='block';btn.innerText='▲ 收起觀點';}else{el.style.display='none';btn.innerText='▼ 查看 AI 觀點';}" style="background:none; border:none; color:#3b82f6; font-size:11px; cursor:pointer; text-decoration:underline; padding:0; display:flex; align-items:center;">
-                            ▼ 查看 AI 觀點
+                    <div class="mt-4">
+                        <button onclick="toggleDetails('${uniqueId}', this)" class="btn-active w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all">
+                            查看 AI 深度觀點 ▼
                         </button>
-                        <div id="${uniqueId}" style="display: none; margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0; text-align: justify;">
+                        <div id="${uniqueId}" class="hidden mt-3 p-4 bg-slate-50 rounded-2xl text-xs text-slate-600 leading-relaxed markdown-content text-justify border border-slate-100">
                             ${marked.parse(item.analysis)}
                         </div>
                     </div>` : ''}
                 </div>`;
-            });
-            list.innerHTML = html;
+            }).join('');
         })
         .catch(err => {
-            console.error(err);
-            document.getElementById('holdings-container').innerText = '載入失敗';
-            renderEmpty(document.getElementById('rec-list'), "連線失敗，請檢查網路");
+            renderEmpty(document.getElementById('rec-list'), "網路連線失敗");
         });
 
     function renderEmpty(element, message) {
-        element.innerHTML = `<div style="text-align:center; color:#cbd5e1; font-size:12px; padding:20px; font-style:italic;">${message}</div>`;
+        element.innerHTML = `<div class="py-10 text-center text-slate-300 text-xs bg-white rounded-3xl border border-dashed border-slate-200">${message}</div>`;
     }
 })();
-</script>
 
+// 全域切換函式
+function toggleDetails(id, btn) {
+    const el = document.getElementById(id);
+    if(el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        btn.innerHTML = '收起觀點 ▲';
+        btn.classList.replace('bg-blue-50', 'bg-slate-200');
+        btn.classList.replace('text-blue-600', 'text-slate-600');
+    } else {
+        el.classList.add('hidden');
+        btn.innerHTML = '查看 AI 深度觀點 ▼';
+        btn.classList.replace('bg-slate-200', 'bg-blue-50');
+        btn.classList.replace('text-slate-600', 'text-blue-600');
+    }
+}
+</script>
+</body>
+</html>
