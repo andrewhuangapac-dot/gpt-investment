@@ -3,86 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <title>美股AI投資建議</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
 
     <style>
-        /* 全域基礎設定 */
+        /* CSS 變數與全域設定，避免污染外部網站 */
+        :root {
+            --wg-bg: #ffffff;
+            --wg-bg-alt: #f8fafc;
+            --wg-border: #e2e8f0;
+            --wg-text-main: #0f172a;
+            --wg-text-sub: #64748b;
+        }
+
         body {
-            background-color: #f1f5f9; /* 外部網頁背景色 */
             margin: 0;
-            padding: 20px 10px;
+            padding: 16px;
+            background-color: #f1f5f9; /* 外部預設背景 */
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 🟢 放大版小工具容器 (max-width 從 380px 放大至 500px) */
-        #ai-portfolio-widget {
-            max-width: 500px;
+        /* 🟢 容器大升級：寬度放寬到 800px，並支援 100% 自適應 */
+        .ai-wg-container {
+            max-width: 800px;
+            width: 100%;
             margin: 0 auto;
+            background: var(--wg-bg);
             border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--wg-border);
             overflow: hidden;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            background: white;
-            border: 1px solid #e2e8f0;
+            box-sizing: border-box;
         }
 
-        /* 動畫與美化 */
+        /* 標題區 */
+        .ai-wg-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 32px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ai-wg-title { font-size: 28px; font-weight: 900; letter-spacing: 1px; margin: 0; }
+        .ai-wg-subtitle { font-size: 14px; color: #94a3b8; margin-top: 6px; font-weight: 600; }
+
+        /* 區塊內距 */
+        .ai-wg-section { padding: 24px 32px; border-bottom: 1px solid var(--wg-border); }
+        .ai-wg-section-bg { background: var(--wg-bg-alt); }
+        .ai-wg-section-title { font-size: 14px; font-weight: 900; color: var(--wg-text-sub); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; }
+
+        /* 持倉按鈕放大 */
+        .ai-wg-tag {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: white; color: var(--wg-text-main);
+            border: 2px solid var(--wg-border);
+            padding: 10px 18px; border-radius: 16px;
+            font-size: 16px; font-weight: 900;
+            text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+        }
+        .ai-wg-tag:hover { border-color: #cbd5e1; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+
+        /* 建議列表與文字放大 */
+        .ai-wg-list-item { padding: 24px 0; border-bottom: 1px dashed var(--wg-border); }
+        .ai-wg-list-item:last-child { border-bottom: none; }
+        
+        .ai-wg-symbol { font-size: 24px; font-weight: 900; color: var(--wg-text-main); }
+        .ai-wg-date { font-size: 14px; color: #94a3b8; font-weight: 700; margin-left: 12px; }
+        .ai-wg-price { font-size: 22px; font-weight: 800; color: #475569; font-family: monospace; }
+        
+        /* 標籤放大 */
+        .ai-wg-badge { padding: 6px 16px; border-radius: 10px; font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+        .ai-wg-badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .ai-wg-badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .ai-wg-badge-ai { background: #fffbeb; color: #d97706; padding: 6px 16px; border-radius: 10px; font-size: 13px; font-weight: 800; }
+
+        /* AI 觀點區域放大 */
+        .ai-wg-btn-toggle {
+            background: none; border: none; padding: 12px 0; margin-top: 8px;
+            color: #3b82f6; font-size: 15px; font-weight: 800; cursor: pointer;
+            text-decoration: underline; display: flex; align-items: center; gap: 4px;
+        }
+        .ai-wg-analysis-box {
+            background: var(--wg-bg-alt); padding: 24px; border-radius: 16px;
+            font-size: 16px; color: #334155; line-height: 1.8;
+            border: 1px solid var(--wg-border); margin-top: 8px;
+        }
+
+        /* 滾動條美化 (高度放寬到 800px) */
+        .ai-wg-scroll { max-height: 800px; overflow-y: auto; padding-right: 12px; margin-right: -12px; }
+        .ai-wg-scroll::-webkit-scrollbar { width: 6px; }
+        .ai-wg-scroll::-webkit-scrollbar-track { background: transparent; }
+        .ai-wg-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* 動畫 */
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        .skeleton { background-color: #e2e8f0; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        .live-dot { box-shadow: 0 0 8px #22c55e; animation: pulse 1.5s infinite; }
-        
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        
-        .markdown-content p { margin-bottom: 8px; }
-        .markdown-content ul { padding-left: 20px; margin-bottom: 8px; }
+        .skeleton { background: #e2e8f0; animation: pulse 2s infinite; border-radius: 8px; }
+
+        /* 手機版微調 (螢幕小於 600px 時) */
+        @media (max-width: 600px) {
+            .ai-wg-header { padding: 24px 20px; }
+            .ai-wg-title { font-size: 22px; }
+            .ai-wg-section { padding: 20px; }
+            .ai-wg-symbol { font-size: 20px; }
+            .ai-wg-price { font-size: 18px; }
+            .ai-wg-tag { font-size: 14px; padding: 8px 14px; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="ai-portfolio-widget">
-        
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 24px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="ai-wg-container">
+        <div class="ai-wg-header">
             <div>
-                <div style="font-weight: 900; font-size: 22px; letter-spacing: 0.5px;">美股AI投資建議</div>
-                <div id="widget-status" style="font-size: 12px; color: #94a3b8; margin-top: 4px; font-weight: 500;">Connecting...</div>
+                <h1 class="ai-wg-title">美股AI投資建議</h1>
+                <div class="ai-wg-subtitle" id="widget-status">載入最新數據中...</div>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.15); padding: 6px 10px; border-radius: 8px;">
-                <div class="live-dot" style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></div>
-                <span style="font-size: 11px; color: #4ade80; font-weight: 900; letter-spacing: 0.5px;">LIVE</span>
+            <div style="display: flex; align-items: center; gap: 8px; background: rgba(34,197,94,0.15); padding: 8px 14px; border-radius: 12px;">
+                <div style="width: 10px; height: 10px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 10px #22c55e; animation: pulse 1.5s infinite;"></div>
+                <span style="font-size: 13px; color: #4ade80; font-weight: 900; letter-spacing: 1px;">LIVE</span>
             </div>
         </div>
 
-        <div id="skeleton-loader" style="padding: 24px;">
-            <div class="skeleton" style="width: 100px; height: 16px; margin-bottom: 20px; border-radius: 4px;"></div>
-            <div style="display: flex; gap: 10px; margin-bottom: 30px;">
-                <div class="skeleton" style="width: 80px; height: 32px; border-radius: 12px;"></div>
-                <div class="skeleton" style="width: 90px; height: 32px; border-radius: 12px;"></div>
+        <div id="skeleton-loader" class="ai-wg-section">
+            <div class="skeleton" style="width: 120px; height: 20px; margin-bottom: 24px;"></div>
+            <div style="display: flex; gap: 12px; margin-bottom: 40px;">
+                <div class="skeleton" style="width: 100px; height: 44px; border-radius: 16px;"></div>
+                <div class="skeleton" style="width: 120px; height: 44px; border-radius: 16px;"></div>
             </div>
-            <div class="skeleton" style="width: 100%; height: 70px; margin-bottom: 16px; border-radius: 16px;"></div>
-            <div class="skeleton" style="width: 100%; height: 70px; border-radius: 16px;"></div>
+            <div class="skeleton" style="width: 100%; height: 100px; margin-bottom: 20px; border-radius: 16px;"></div>
+            <div class="skeleton" style="width: 100%; height: 100px; border-radius: 16px;"></div>
         </div>
 
         <div id="widget-content" style="display: none;">
-            
-            <div style="padding: 20px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
-                <div style="font-size: 12px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px;">💼 當前持倉 (Live Data)</div>
-                <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+            <div class="ai-wg-section ai-wg-section-bg">
+                <div class="ai-wg-section-title">💼 當前持倉 (Live Data)</div>
+                <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 12px;"></div>
             </div>
 
-            <div style="padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <div style="font-size: 12px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">📢 AI 最新操作建議</div>
+            <div class="ai-wg-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div class="ai-wg-section-title" style="margin: 0;">📢 AI 最新操作建議</div>
+                    <div style="font-size: 12px; font-weight: 900; color: #3b82f6; background: #eff6ff; padding: 4px 10px; border-radius: 8px;">最近 7 日</div>
                 </div>
-                <div id="rec-list" class="custom-scroll" style="max-height: 600px; overflow-y: auto; padding-right: 8px;"></div>
+                
+                <div id="rec-list" class="ai-wg-scroll"></div>
             </div>
         </div>
 
-        <div style="background: #f8fafc; padding: 14px; text-align: center; font-size: 11px; color: #cbd5e1; border-top: 1px solid #f1f5f9; font-weight: 600;">
+        <div style="background: var(--wg-bg-alt); padding: 20px; text-align: center; font-size: 13px; color: #cbd5e1; font-weight: 700; border-top: 1px solid var(--wg-border);">
             Powered by Google Gemini 1.5 Pro
         </div>
     </div>
@@ -95,7 +167,6 @@
         const API_URL = 'https://script.google.com/macros/s/AKfycbwmeeME_OntMnpA5bmX6pYhH_HlRArMZPiqzQP39aPPpirWt_uiKNz2MSiYMY4qdFqH/exec'; 
         // ============================================================
 
-        // 確保網頁載入時強制修改 Title
         document.title = "美股AI投資建議";
 
         function loadWidgetData() {
@@ -104,21 +175,75 @@
                 .then(json => {
                     document.getElementById('skeleton-loader').style.display = 'none';
                     document.getElementById('widget-content').style.display = 'block';
-                    document.getElementById('widget-status').innerText = 'GPT + Gemini • 自動刷新中';
+                    document.getElementById('widget-status').innerText = 'GPT + Gemini • 數據已同步';
 
-                    // 渲染持倉 (字體與內距放大)
+                    // 1. 渲染持倉 (字體/按鈕已放大)
                     const hBox = document.getElementById('holdings-container');
                     if (json.holdings && json.holdings.length > 0) {
                         hBox.innerHTML = json.holdings.map(sym => {
                             const market = json.liveMarket?.[sym] || { change: 0 };
                             const isUp = market.change >= 0;
-                            const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 11px; margin-left: 6px;">${isUp?'▲':'▼'}${Math.abs(market.change).toFixed(2)}%</span>`;
+                            const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 13px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(market.change).toFixed(2)}%</span>`;
                             return `
-                            <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" 
-                               style="text-decoration: none; background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s;"
-                               onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
+                            <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" class="ai-wg-tag">
                                ${sym} ${changeHtml}
                             </a>`;
                         }).join('');
                     } else {
-                        hBox.innerHTML = '<span style="font-size:13
+                        hBox.innerHTML = '<span style="font-size:15px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
+                    }
+
+                    // 2. 渲染建議
+                    const list = document.getElementById('rec-list');
+                    const validData = (json.data || []).filter(i => new Date(i.date) >= new Date(Date.now() - 7 * 86400000)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+                    
+                    if (validData.length === 0) {
+                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:16px; font-weight:900; border:2px dashed #e2e8f0; border-radius:16px;">近 7 日無新建議</div>`;
+                        return;
+                    }
+
+                    list.innerHTML = validData.map((item, idx) => {
+                        const isBuy = item.type === 'Buy';
+                        const badgeClass = isBuy ? 'ai-wg-badge-buy' : 'ai-wg-badge-sell';
+                        const typeText = isBuy ? '買入 BUY' : '賣出 SELL';
+                        const formattedPrice = Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        
+                        return `
+                        <div class="ai-wg-list-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div>
+                                    <span class="ai-wg-symbol">${item.symbol}</span>
+                                    <span class="ai-wg-date">${item.date.substring(5)}</span>
+                                </div>
+                                <span class="ai-wg-badge ${badgeClass}">${typeText}</span>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="ai-wg-price">$${formattedPrice}</span>
+                                <span class="ai-wg-badge-ai">AI 分析: ${item.count} 次</span>
+                            </div>
+
+                            ${item.analysis && item.analysis.trim() !== '' ? `
+                            <div>
+                                <button onclick="var el=document.getElementById('ai-${idx}'); if(el.style.display==='none'){el.style.display='block';this.innerText='收起深度分析 ▲';}else{el.style.display='none';this.innerText='查看 AI 深度觀點 ▼';}" class="ai-wg-btn-toggle">
+                                    查看 AI 深度觀點 ▼
+                                </button>
+                                <div id="ai-${idx}" style="display:none;" class="ai-wg-analysis-box markdown-content">
+                                    ${marked.parse(item.analysis)}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    document.getElementById('skeleton-loader').innerHTML = `<div style="text-align:center; padding: 60px; color:#ef4444; font-size:16px; font-weight:900;">連線失敗，請檢查網路連線</div>`;
+                });
+        }
+        
+        loadWidgetData(); 
+        setInterval(loadWidgetData, 300000); // 5分鐘背景自動更新
+    })();
+    </script>
+</body>
+</html>
