@@ -1,150 +1,104 @@
-<div id="ai-portfolio-widget" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft JhengHei', sans-serif; border: 1px solid #e2e8f0; border-radius: 24px; overflow: hidden; max-width: 380px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); background: white; margin: 0 auto;">
+<div id="ai-portfolio-widget" style="font-family: -apple-system, sans-serif; border-radius: 24px; overflow: hidden; max-width: 380px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); background: white; margin: 0 auto; border: 1px solid #e2e8f0;">
     
     <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <div id="widget-title-text" style="font-weight: 900; font-size: 18px; letter-spacing: 0.5px;">美股 AI 投資建議</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top:2px; font-weight: 500;">GPT + Gemini</div>
+            <div style="font-weight: 900; font-size: 18px;">美股 AI 投資建議</div>
+            <div id="widget-status" style="font-size: 11px; color: #94a3b8; margin-top:2px;">Connecting...</div>
         </div>
         <div style="display: flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.1); padding: 4px 8px; border-radius: 8px;">
-            <div style="width: 6px; height: 6px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e;"></div>
+            <div class="live-dot" style="width: 6px; height: 6px; background: #22c55e; border-radius: 50%;"></div>
             <span style="font-size: 10px; color: #4ade80; font-weight: 900;">LIVE</span>
         </div>
     </div>
 
-    <div style="padding: 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
-        <div style="font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">
-            💼 持有標的 Holdings
+    <div id="skeleton-loader" style="padding: 20px;">
+        <div class="skeleton" style="width: 80px; height: 14px; margin-bottom: 16px; border-radius: 4px;"></div>
+        <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+            <div class="skeleton" style="width: 60px; height: 28px; border-radius: 12px;"></div>
+            <div class="skeleton" style="width: 70px; height: 28px; border-radius: 12px;"></div>
         </div>
-        <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
-            <span style="font-size: 12px; color: #cbd5e1; italic">同步中...</span>
-        </div>
+        <div class="skeleton" style="width: 100%; height: 60px; margin-bottom: 12px; border-radius: 12px;"></div>
+        <div class="skeleton" style="width: 100%; height: 60px; border-radius: 12px;"></div>
     </div>
 
-    <div style="padding: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
-            <div style="font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">📢 最新操作建議</div>
-            <div style="font-size: 9px; font-weight: bold; color: #3b82f6; background: #eff6ff; padding: 2px 6px; border-radius: 4px;">NEWEST</div>
+    <div id="widget-content" style="display: none;">
+        <div style="padding: 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+            <div style="font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">💼 當前持倉 (Live Data)</div>
+            <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
         </div>
-        
-        <div id="rec-list" class="custom-scroll" style="max-height: 520px; overflow-y: auto; padding-right: 4px;">
+
+        <div style="padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">📢 AI 最新建議</div>
             </div>
-    </div>
-
-    <div style="background: #f8fafc; padding: 12px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px solid #f1f5f9; font-weight: 500;">
-        Powered by Google Gemini AI Terminal
+            <div id="rec-list" class="custom-scroll" style="max-height: 520px; overflow-y: auto; padding-right: 4px;"></div>
+        </div>
     </div>
 </div>
 
 <style>
-    /* 美化滾動條 */
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    .skeleton { background-color: #e2e8f0; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .live-dot { box-shadow: 0 0 8px #22c55e; animation: pulse 1.5s infinite; }
     .custom-scroll::-webkit-scrollbar { width: 3px; }
     .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-    .btn-active:active { transform: scale(0.96); opacity: 0.8; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 </style>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
 
 <script>
 (function() {
-    // ============================================================
-    // 🔴 貼入您的 API 網址
-    // ============================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyXBfSISMPrZtiSt24Wsao-9V7bN5SZ_FjENs48tRiOixqzgxrac0tMa1n9F-Ril6ad/exec'; 
-    const DAYS_LIMIT = 7; // 展示最近 7 天的建議
-    // ============================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwmeeME_OntMnpA5bmX6pYhH_HlRArMZPiqzQP39aPPpirWt_uiKNz2MSiYMY4qdFqH/exec'; 
 
-    fetch(API_URL + '?action=public_board')
-        .then(res => res.json())
-        .then(json => {
-            // 1. 持倉渲染 (iOS 按鈕風格)
-            const holdingsBox = document.getElementById('holdings-container');
-            if (json.holdings && json.holdings.length > 0) {
-                holdingsBox.innerHTML = json.holdings.map(sym => `
-                    <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" 
-                       style="text-decoration: none; background: white; color: #1e293b; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; display: inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;"
-                       class="btn-active">
-                       ${sym} <span style="font-size: 9px; opacity: 0.3;">↗</span>
-                    </a>`).join('');
-            } else {
-                holdingsBox.innerHTML = '<span style="font-size:11px; color:#cbd5e1;">目前無持倉標的</span>';
-            }
+    function loadWidgetData() {
+        fetch(API_URL + '?action=public_board')
+            .then(res => res.json())
+            .then(json => {
+                document.getElementById('skeleton-loader').style.display = 'none';
+                document.getElementById('widget-content').style.display = 'block';
+                document.getElementById('widget-status').innerText = 'Gemini 2.5 Pro • 自動刷新中';
 
-            // 2. 建議列表渲染
-            const list = document.getElementById('rec-list');
-            if (!json.data || json.data.length === 0) { renderEmpty(list, "暫無公開建議"); return; }
+                // 持倉 (含即時漲跌幅)
+                const hBox = document.getElementById('holdings-container');
+                if (json.holdings && json.holdings.length > 0) {
+                    hBox.innerHTML = json.holdings.map(sym => {
+                        const market = json.liveMarket?.[sym] || { change: 0 };
+                        const isUp = market.change >= 0;
+                        const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 10px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(market.change)}%</span>`;
+                        return `
+                        <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" 
+                           style="text-decoration: none; background: white; color: #1e293b; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                           ${sym} ${changeHtml}
+                        </a>`;
+                    }).join('');
+                }
 
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - DAYS_LIMIT);
-            cutoffDate.setHours(0, 0, 0, 0);
-
-            // 過濾並排序
-            const validData = json.data
-                .filter(item => new Date(item.date) >= cutoffDate)
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            if (validData.length === 0) { renderEmpty(list, `近 ${DAYS_LIMIT} 日無新建議`); return; }
-            
-            let html = '';
-            validData.forEach((item, index) => {
-                const isBuy = item.type === 'Buy';
-                const color = isBuy ? '#16a34a' : '#dc2626';
-                const bg = isBuy ? '#f0fdf4' : '#fef2f2';
-                const dateShort = item.date.substring(5);
-                const formattedPrice = item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                const hasAnalysis = item.analysis && item.analysis.trim() !== '';
-                const uniqueId = `pub-analysis-${index}`;
-
-                html += `
-                <div style="padding: 14px 8px; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-weight: 900; color: #0f172a; font-size: 16px;">${item.symbol}</span>
-                            <span style="font-size: 10px; color: #94a3b8; font-weight: 700; font-family: monospace;">${dateShort}</span>
+                // 建議
+                const list = document.getElementById('rec-list');
+                const validData = (json.data || []).filter(i => new Date(i.date) >= new Date(Date.now() - 7 * 86400000)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+                
+                list.innerHTML = validData.map((item, idx) => {
+                    const isBuy = item.type === 'Buy';
+                    return `
+                    <div style="padding: 14px 8px; border-bottom: 1px solid #f1f5f9;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-weight: 900; font-size: 16px;">${item.symbol} <span style="font-size: 10px; color: #94a3b8; margin-left: 4px;">${item.date.substring(5)}</span></div>
+                            <span style="background:${isBuy?'#f0fdf4':'#fef2f2'}; color:${isBuy?'#16a34a':'#dc2626'}; padding: 3px 10px; border-radius: 8px; font-size: 10px; font-weight: 900;">${isBuy?'買入':'賣出'}</span>
                         </div>
-                        <span style="background:${bg}; color:${color}; padding: 3px 10px; border-radius: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; border: 1px solid ${isBuy ? '#dcfce7' : '#fee2e2'};">
-                            ${isBuy ? '買入 Buy' : '賣出 Sell'}
-                        </span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                        <span style="font-size: 14px; font-weight: 800; color: #475569; font-family: monospace;">$${formattedPrice}</span>
-                        <div style="font-size: 9px; color: #f59e0b; font-weight: 800; background: #fffbeb; padding: 2px 8px; border-radius: 6px;">
-                            AI 分析: ${item.count} 次
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                            <span style="font-size: 14px; font-weight: 800; font-family: monospace;">$${item.price.toFixed(2)}</span>
+                            <span style="font-size: 9px; color: #f59e0b; background: #fffbeb; padding: 2px 8px; border-radius: 6px; font-weight: 800;">AI: ${item.count} 次</span>
                         </div>
-                    </div>
-
-                    ${hasAnalysis ? `
-                    <div style="margin-top: 6px;">
-                        <button onclick="togglePubDetails('${uniqueId}', this)" style="background:none; border:none; color:#3b82f6; font-size:10px; font-weight:800; cursor:pointer; text-decoration:underline; padding:0; display:flex; align-items:center; gap:2px;">
-                            查看 AI 觀點解讀 ▼
-                        </button>
-                        <div id="${uniqueId}" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border-radius: 12px; font-size: 12px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0; text-align: justify;" class="markdown-content">
-                            ${marked.parse(item.analysis)}
-                        </div>
-                    </div>` : ''}
-                </div>`;
+                        ${item.analysis ? `
+                        <button onclick="var el=document.getElementById('ai-${idx}'); if(el.style.display==='none'){el.style.display='block';this.innerText='收起內容 ▲';}else{el.style.display='none';this.innerText='查看 AI 觀點 ▼';}" style="margin-top:8px; background:none; border:none; color:#3b82f6; font-size:10px; font-weight:800; cursor:pointer; padding:0;">查看 AI 觀點 ▼</button>
+                        <div id="ai-${idx}" style="display:none; margin-top:10px; padding:12px; background:#f8fafc; border-radius:12px; font-size:12px; color:#475569; line-height:1.6;" class="markdown-content">${marked.parse(item.analysis)}</div>
+                        ` : ''}
+                    </div>`;
+                }).join('');
             });
-            list.innerHTML = html;
-        })
-        .catch(err => {
-            renderEmpty(document.getElementById('rec-list'), "網路同步失敗");
-        });
-
-    function renderEmpty(element, message) {
-        element.innerHTML = `<div style="text-align:center; color:#cbd5e1; font-size:12px; padding:40px; font-weight: 800; border: 2px dashed #f1f5f9; border-radius: 20px;">${message}</div>`;
     }
+    
+    loadWidgetData(); // 初始載入
+    setInterval(loadWidgetData, 300000); // 每 5 分鐘靜默刷新
 })();
-
-// 全域切換函式
-function togglePubDetails(id, btn) {
-    const el = document.getElementById(id);
-    if(el.style.display === 'none') {
-        el.style.display = 'block';
-        btn.innerHTML = '收起內容 ▲';
-    } else {
-        el.style.display = 'none';
-        btn.innerHTML = '查看 AI 觀點解讀 ▼';
-    }
-}
 </script>
