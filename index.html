@@ -155,7 +155,7 @@
             <div class="section" style="flex: 1; padding-bottom: 0;">
                 <div class="section-title">
                     <span>📢 委員會最新發布訊號</span>
-                    <span style="font-size: 10px; background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 6px;">即時推播</span>
+                    <span style="font-size: 10px; background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 6px;">近 7 日</span>
                 </div>
                 <div id="rec-list" class="list-scroll"></div>
             </div>
@@ -184,7 +184,7 @@
                 .then(json => {
                     document.getElementById('skeleton-loader').style.display = 'none';
 
-                    // 🚨【X-Ray 診斷觸發條件】如果後端回傳成功，但陣列卻是空的！
+                    // 🚨【X-Ray 診斷】
                     const holdingsEmpty = !json.holdings || json.holdings.length === 0;
                     const dataEmpty = !json.data || json.data.length === 0;
                     
@@ -218,13 +218,22 @@
                         hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
                     }
 
-                    // 2. 渲染建議清單 (防呆處理)
+                    // 2. 渲染建議清單 (限制為近 7 天內)
                     const list = document.getElementById('rec-list');
                     let validData = Array.isArray(json.data) ? json.data : [];
-                    validData = validData.filter(item => item && item.date).sort((a,b) => new Date(b.date) - new Date(a.date));
+                    
+                    // 🚀 核心更新：過濾出 7 天內的資料
+                    const sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    
+                    validData = validData.filter(item => {
+                        if (!item || !item.date) return false;
+                        const itemDate = new Date(item.date);
+                        return itemDate >= sevenDaysAgo; // 只保留日期大於等於 7 天前的發布
+                    }).sort((a,b) => new Date(b.date) - new Date(a.date));
                     
                     if (validData.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:15px; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px; margin-bottom: 20px;">經理人近期無新戰略發布</div>`;
+                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:15px; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px; margin-bottom: 20px;">近 7 日無新戰略發布</div>`;
                         return;
                     }
 
