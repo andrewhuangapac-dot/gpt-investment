@@ -6,10 +6,10 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AI建議">
+    <meta name="apple-mobile-web-app-title" content="AI 建議">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2534/2534433.png">
 
-    <title>美股AI投資建議</title>
+    <title>美股 AI 投資建議 (Live)</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
 
@@ -26,8 +26,7 @@
         }
 
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background-color: var(--bg-body);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             -webkit-font-smoothing: antialiased;
@@ -50,9 +49,7 @@
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             padding: calc(32px + var(--safe-top)) 32px 32px 32px;
             color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .header-title { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; margin: 0; }
         .header-sub { font-size: 13px; color: #94a3b8; margin-top: 6px; font-weight: 600; }
@@ -84,15 +81,15 @@
         
         /* 四象限操作的專屬標籤顏色 */
         .badge { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
-        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }   /* 加碼 (綠色) */
-        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }  /* 減碼 (紅色) */
+        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }   /* 加碼/買入 (綠色) */
+        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }  /* 減碼/賣出 (紅色) */
         .badge-new { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }   /* 建倉 (藍色) */
         .badge-clear { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; } /* 清倉 (橘黃) */
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .skeleton { background: #e2e8f0; animation: pulse 1.5s infinite; border-radius: 8px; }
 
-        .markdown-content p { margin-bottom: 8px; }
+        .markdown-content p { margin-bottom: 8px; line-height: 1.6; }
         .markdown-content ul { padding-left: 20px; margin-bottom: 8px; }
 
         @media (max-width: 768px) {
@@ -113,7 +110,7 @@
     <div class="app-container">
         <div class="header">
             <div>
-                <h1 class="header-title">美股AI投資建議</h1>
+                <h1 class="header-title">AI 戰略經理人看板</h1>
                 <div class="header-sub" id="widget-status">載入最新數據中...</div>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.2); padding: 6px 12px; border-radius: 10px;">
@@ -133,56 +130,58 @@
         </div>
 
         <div id="widget-content" style="display: none; flex: 1; flex-direction: column;">
+            
             <div class="section section-bg">
-                <div class="section-title">💼 當前持倉 (Live Data)</div>
+                <div class="section-title">💼 當前核心持倉雷達</div>
                 <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
             </div>
 
             <div class="section" style="flex: 1; padding-bottom: 0;">
                 <div class="section-title">
-                    <span>📢 AI 最新操作建議</span>
-                    <span style="font-size: 10px; background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 6px;">近 7 日</span>
+                    <span>📢 委員會最新發布訊號</span>
+                    <span style="font-size: 10px; background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 6px;">即時推播</span>
                 </div>
                 <div id="rec-list" class="list-scroll"></div>
             </div>
         </div>
 
         <div style="background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #cbd5e1; font-weight: 600; border-top: 1px solid #f1f5f9; padding-bottom: calc(16px + var(--safe-bottom));">
-            Powered by Google Gemini Pro Terminal
+            Powered by Quant Matrix Agent
         </div>
     </div>
 
     <script>
     (function() {
         // ============================================================
-        // 🔴 您的 API 網址
+        // 🔴 請確保此處填寫的是您部署的「最新版」GAS 網址
         // ============================================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycby6wynrwRoiFFLHC4Iirw0vNeSQUm3wbJeQugrjbTnk99QEeRvKQF6JXCrH_XlE7wlr/exec'; 
+        const API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'; 
         // ============================================================
-
-        document.title = "美股AI投資建議";
 
         function loadWidgetData() {
-            fetch(API_URL + '?action=public_board')
+            // 加入時間戳防止瀏覽器快取舊資料
+            fetch(API_URL + '?action=public_board&t=' + Date.now())
                 .then(res => {
-                    if(!res.ok) throw new Error("HTTP Error");
+                    if(!res.ok) throw new Error("HTTP 網路連線錯誤");
                     return res.json();
                 })
                 .then(json => {
-                    if (json.status === 'error') throw new Error(json.message);
+                    if (json.status !== 'success') throw new Error(json.message || "未知錯誤");
 
                     document.getElementById('skeleton-loader').style.display = 'none';
                     document.getElementById('widget-content').style.display = 'flex';
-                    document.getElementById('widget-status').innerText = 'GPT & Gemini Pro • 數據已同步';
+                    document.getElementById('widget-status').innerText = '三 Agent 委員會 • 數據同步完成';
 
+                    // 1. 渲染持倉標籤與漲跌幅
                     const hBox = document.getElementById('holdings-container');
                     if (json.holdings && json.holdings.length > 0) {
                         hBox.innerHTML = json.holdings.map(sym => {
                             const market = json.liveMarket?.[sym] || { change: 0 };
-                            const isUp = market.change >= 0;
-                            const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 12px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(market.change).toFixed(2)}%</span>`;
+                            const changeVal = Number(market.change) || 0;
+                            const isUp = changeVal >= 0;
+                            const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 12px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(changeVal).toFixed(2)}%</span>`;
                             return `
-                            <a href="https://www.google.com/search?q=finance+${sym}" target="_blank" class="holding-tag">
+                            <a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" class="holding-tag">
                                ${sym} ${changeHtml}
                             </a>`;
                         }).join('');
@@ -190,34 +189,34 @@
                         hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
                     }
 
+                    // 2. 渲染建議清單 (按日期新到舊排序)
                     const list = document.getElementById('rec-list');
-                    const validData = (json.data || []).filter(i => new Date(i.date) >= new Date(Date.now() - 7 * 86400000)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+                    const validData = (json.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
                     
                     if (validData.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:15px; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px; margin-bottom: 20px;">近 7 日無新建議發布</div>`;
+                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:15px; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px; margin-bottom: 20px;">經理人近期無新戰略發布</div>`;
                         return;
                     }
 
                     list.innerHTML = validData.map((item, idx) => {
-                        // 🟢 專業量化策略詞彙與色彩對應
-                        let badgeClass = '';
-                        let typeText = '';
+                        // 色彩對應邏輯修復
+                        let badgeClass = 'badge-new';
+                        let typeText = item.type || '分析';
+                        const t = typeText.toLowerCase();
                         
-                        // 自動相容舊版的 Buy/Sell 資料
-                        if (item.type === 'New') { badgeClass = 'badge-new'; typeText = '建倉 NEW'; }
-                        else if (item.type === 'Add' || item.type === 'Buy') { badgeClass = 'badge-buy'; typeText = '加碼 ADD'; }
-                        else if (item.type === 'Reduce' || item.type === 'Sell') { badgeClass = 'badge-sell'; typeText = '減碼 REDUCE'; }
-                        else if (item.type === 'Clear') { badgeClass = 'badge-clear'; typeText = '清倉 CLEAR'; }
-                        else { badgeClass = 'badge-buy'; typeText = item.type; }
+                        if (t === 'new') { badgeClass = 'badge-new'; typeText = '建倉 NEW'; }
+                        else if (t === 'add' || t === 'buy') { badgeClass = 'badge-buy'; typeText = '加碼 ADD'; }
+                        else if (t === 'reduce' || t === 'sell') { badgeClass = 'badge-sell'; typeText = '減碼 REDUCE'; }
+                        else if (t === 'clear') { badgeClass = 'badge-clear'; typeText = '清倉 CLEAR'; }
 
-                        const formattedPrice = Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const formattedPrice = Number(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         
                         return `
                         <div class="list-item">
                             <div class="item-row">
                                 <div>
                                     <span class="item-symbol">${item.symbol}</span>
-                                    <span class="item-date">${item.date.substring(5)}</span>
+                                    <span class="item-date">${item.date}</span>
                                 </div>
                                 <span class="badge ${badgeClass}">${typeText}</span>
                             </div>
@@ -225,7 +224,7 @@
                             <div class="item-row">
                                 <span class="item-price">$${formattedPrice}</span>
                                 <span style="background: #fffbeb; color: #d97706; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">
-                                    AI 分析: ${item.count} 次
+                                    AI 分析辯論: ${item.count || 1} 次
                                 </span>
                             </div>
 
@@ -234,7 +233,7 @@
                                 <button onclick="var el=document.getElementById('ai-${idx}'); if(el.style.display==='none'){el.style.display='block';this.innerText='收起深度分析 ▲';}else{el.style.display='none';this.innerText='查看 AI 深度觀點 ▼';}" style="background:none; border:none; padding:12px 0 0 0; color:#3b82f6; font-size:13px; font-weight:800; cursor:pointer; text-decoration:underline; width: 100%; text-align: left;">
                                     查看 AI 深度觀點 ▼
                                 </button>
-                                <div id="ai-${idx}" style="display:none; background:#f8fafc; padding:20px; border-radius:16px; font-size:14px; color:#334155; line-height:1.7; border:1px solid #e2e8f0; margin-top:12px;" class="markdown-content">
+                                <div id="ai-${idx}" style="display:none; background:#f8fafc; padding:20px; border-radius:16px; font-size:13px; color:#334155; border:1px solid #e2e8f0; margin-top:12px;" class="markdown-content">
                                     ${marked.parse(item.analysis)}
                                 </div>
                             </div>
@@ -243,15 +242,17 @@
                     }).join('');
                 })
                 .catch(err => {
+                    console.error("載入失敗:", err);
                     document.getElementById('skeleton-loader').innerHTML = `
                         <div style="text-align:center; padding: 40px; border: 1px solid #fecaca; background: #fef2f2; border-radius: 16px;">
                             <div style="color:#dc2626; font-size:14px; font-weight:900; margin-bottom: 8px;">無法取得最新數據</div>
-                            <div style="color:#7f1d1d; font-size:11px;">請確認後端權限已設為「所有人」</div>
+                            <div style="color:#7f1d1d; font-size:11px;">請確認後端已發布新版本，且 Web App 權限設為「所有人」。</div>
                         </div>`;
                 });
         }
         
         loadWidgetData(); 
+        // 每 5 分鐘自動刷新一次數據
         setInterval(loadWidgetData, 300000); 
     })();
     </script>
