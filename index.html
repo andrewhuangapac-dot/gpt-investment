@@ -3,106 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AI 建議">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2534/2534433.png">
-
-    <title>美股 AI 投資建議 (Live)</title>
-
+    <title>AI 戰略看板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
-
     <style>
         * { box-sizing: border-box; }
-        
-        :root {
-            --safe-top: env(safe-area-inset-top, 0px);
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --bg-body: #f1f5f9;
-            --bg-card: #ffffff;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-        }
-
-        body {
-            margin: 0; padding: 0;
-            background-color: var(--bg-body);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .app-container {
-            max-width: 800px;
-            margin: 40px auto; 
-            background: var(--bg-card);
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-            border: 1px solid #e2e8f0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            padding: calc(32px + var(--safe-top)) 32px 32px 32px;
-            color: white;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .header-title { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; margin: 0; }
+        body { margin: 0; background-color: #f1f5f9; font-family: -apple-system, sans-serif; }
+        .app-container { max-width: 800px; margin: 40px auto; background: #ffffff; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); overflow: hidden; display: flex; flex-direction: column; }
+        .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-size: 26px; font-weight: 900; margin: 0; }
         .header-sub { font-size: 13px; color: #94a3b8; margin-top: 6px; font-weight: 600; }
-
         .section { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; }
-        .section-bg { background: #f8fafc; }
-        .section-title { font-size: 13px; font-weight: 900; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-
-        .holding-tag {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: white; color: var(--text-main);
-            border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 12px;
-            font-size: 15px; font-weight: 800; text-decoration: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s;
-        }
-        .holding-tag:active { transform: scale(0.96); }
-
-        .list-scroll { max-height: 600px; overflow-y: auto; padding-right: 8px; margin-right: -8px; }
-        .list-scroll::-webkit-scrollbar { width: 4px; }
-        .list-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        
+        .section-title { font-size: 13px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 16px; }
+        .holding-tag { display: inline-flex; align-items: center; gap: 6px; background: white; color: #0f172a; border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 12px; font-size: 15px; font-weight: 800; text-decoration: none; }
         .list-item { padding: 20px 0; border-bottom: 1px dashed #e2e8f0; }
-        .list-item:last-child { border-bottom: none; }
-        
         .item-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .item-symbol { font-size: 22px; font-weight: 900; color: var(--text-main); }
+        .item-symbol { font-size: 22px; font-weight: 900; color: #0f172a; }
         .item-date { font-size: 13px; color: #94a3b8; font-weight: 700; margin-left: 8px; }
         .item-price { font-size: 20px; font-weight: 800; color: #475569; font-family: monospace; }
-        
-        /* 四象限操作的專屬標籤顏色 */
-        .badge { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
-        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }   
-        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }  
-        .badge-new { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }   
-        .badge-clear { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; } 
-
+        .badge { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 900; }
+        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .badge-new { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+        .badge-clear { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; }
+        .markdown-content p { margin-bottom: 8px; line-height: 1.6; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .skeleton { background: #e2e8f0; animation: pulse 1.5s infinite; border-radius: 8px; }
-
-        .markdown-content p { margin-bottom: 8px; line-height: 1.6; }
-        .markdown-content ul { padding-left: 20px; margin-bottom: 8px; }
-
-        @media (max-width: 768px) {
-            body { background-color: var(--bg-card); }
-            .app-container { margin: 0; border-radius: 0; border: none; box-shadow: none; min-height: 100vh; }
-            .header { padding: calc(20px + var(--safe-top)) 20px 20px 20px; }
-            .header-title { font-size: 22px; }
-            .section { padding: 20px; }
-            .item-symbol { font-size: 18px; }
-            .item-price { font-size: 18px; }
-            .holding-tag { font-size: 14px; padding: 8px 12px; }
-            .list-scroll { max-height: none; overflow-y: visible; padding-bottom: calc(40px + var(--safe-bottom)); }
-        }
+        @media (max-width: 768px) { .app-container { margin: 0; border-radius: 0; min-height: 100vh; } }
+        
+        /* 診斷模式專用 UI */
+        #debug-panel { display: none; background: #1e293b; color: #10b981; padding: 20px; margin: 20px; border-radius: 16px; font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; border: 2px solid #334155; }
     </style>
 </head>
 <body>
@@ -113,110 +43,74 @@
                 <h1 class="header-title">AI 戰略經理人看板</h1>
                 <div class="header-sub" id="widget-status">載入最新數據中...</div>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.2); padding: 6px 12px; border-radius: 10px;">
-                <div style="width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 1.5s infinite;"></div>
-                <span style="font-size: 11px; color: #4ade80; font-weight: 900; letter-spacing: 1px;">LIVE</span>
-            </div>
         </div>
+
+        <div id="debug-panel"></div>
 
         <div id="skeleton-loader" class="section">
             <div class="skeleton" style="width: 100px; height: 16px; margin-bottom: 20px;"></div>
-            <div style="display: flex; gap: 10px; margin-bottom: 30px;">
-                <div class="skeleton" style="width: 80px; height: 36px; border-radius: 12px;"></div>
-                <div class="skeleton" style="width: 90px; height: 36px; border-radius: 12px;"></div>
-            </div>
-            <div class="skeleton" style="width: 100%; height: 80px; margin-bottom: 16px; border-radius: 16px;"></div>
-            <div class="skeleton" style="width: 100%; height: 80px; border-radius: 16px;"></div>
+            <div class="skeleton" style="width: 100%; height: 80px; margin-bottom: 16px;"></div>
         </div>
 
         <div id="widget-content" style="display: none; flex: 1; flex-direction: column;">
-            
-            <div class="section section-bg">
-                <div class="section-title">💼 當前核心持倉雷達</div>
+            <div class="section" style="background: #f8fafc;">
+                <div class="section-title">💼 當前持倉</div>
                 <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
             </div>
-
-            <div class="section" style="flex: 1; padding-bottom: 0;">
-                <div class="section-title">
-                    <span>📢 委員會最新發布訊號</span>
-                    <span style="font-size: 10px; background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 6px;">即時推播</span>
-                </div>
-                <div id="rec-list" class="list-scroll"></div>
+            <div class="section" style="flex: 1;">
+                <div class="section-title">📢 最新發布訊號</div>
+                <div id="rec-list" style="max-height: 600px; overflow-y: auto;"></div>
             </div>
-        </div>
-
-        <div style="background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #cbd5e1; font-weight: 600; border-top: 1px solid #f1f5f9; padding-bottom: calc(16px + var(--safe-bottom));">
-            Powered by Quant Matrix Agent
         </div>
     </div>
 
     <script>
     (function() {
         // ============================================================
-        // 🔴 請確保此處填寫的是您部署的「最新版」GAS 網址
+        // 🔴 請確保填寫您「剛才建立新版本」後的 GAS 網址
         // ============================================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwrmewelxEvL6KZ82YMGhd1aNjePBHYCXBOltDZfchfjhQ0mfI-tmwg9lSRnwHvdrgu/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzJb9FJ0vBj8yaYLvenhqAIKRY3XgGqLlwje2aicwMJZ-CEUmz7HMnpC5nF6_B33XmH/exec'; 
         // ============================================================
 
         function loadWidgetData() {
-            console.log("開始請求資料..."); // 診斷點 1
-            
+            // 加入時間戳強迫獲取最新資料，不讀取快取
             fetch(API_URL + '?action=public_board&t=' + Date.now())
-                .then(res => {
-                    console.log("收到伺服器回應狀態:", res.status); // 診斷點 2
-                    if(!res.ok) throw new Error("HTTP 網路連線錯誤");
-                    return res.json();
-                })
+                .then(res => res.json())
                 .then(json => {
-                    console.log("解析出的 JSON 資料:", json); // 診斷點 3
-
-                    if (json.status !== 'success') {
-                        throw new Error(json.message || "後端回傳狀態非 success");
-                    }
-
                     document.getElementById('skeleton-loader').style.display = 'none';
+
+                    // 🚨【X-Ray 診斷觸發條件】如果後端回傳成功，但陣列卻是空的！
+                    const holdingsEmpty = !json.holdings || json.holdings.length === 0;
+                    const dataEmpty = !json.data || json.data.length === 0;
+                    
+                    if (json.status === 'error' || (holdingsEmpty && dataEmpty)) {
+                        document.getElementById('widget-status').innerText = '🔴 資料異常 / 空白';
+                        const debugPanel = document.getElementById('debug-panel');
+                        debugPanel.style.display = 'block';
+                        debugPanel.innerHTML = `⚠️ <b>警告：後端傳來的資料是空的！</b>\n\n如果您的管理後台明明有資料，這表示：\n1. 您忘記發布「新版本」的 GAS。\n2. 您這個 HTML 裡面的 API_URL 貼成了舊的網址。\n\n<b>【後端真實回傳結果】：</b>\n${JSON.stringify(json, null, 2)}`;
+                        return; // 停止渲染
+                    }
+
                     document.getElementById('widget-content').style.display = 'flex';
-                    document.getElementById('widget-status').innerText = '三 Agent 委員會 • 數據同步完成';
+                    document.getElementById('widget-status').innerText = '🟢 數據同步完成';
 
-                    // 1. 渲染持倉標籤與漲跌幅 (防呆處理)
+                    // 1. 渲染持倉
                     const hBox = document.getElementById('holdings-container');
-                    // 確保 holdings 存在且是陣列，如果不是陣列，就給空陣列
-                    const validHoldings = Array.isArray(json.holdings) ? json.holdings : [];
-                    
-                    if (validHoldings.length > 0) {
-                        hBox.innerHTML = validHoldings.map(sym => {
-                            // 防呆：如果 liveMarket 不存在，或是該股票代號不存在，就預設 change 為 0
-                            const market = (json.liveMarket && json.liveMarket[sym]) ? json.liveMarket[sym] : { change: 0 };
-                            const changeVal = Number(market.change) || 0;
-                            const isUp = changeVal >= 0;
-                            const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 12px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(changeVal).toFixed(2)}%</span>`;
-                            return `
-                            <a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" class="holding-tag">
-                               ${sym} ${changeHtml}
-                            </a>`;
-                        }).join('');
-                    } else {
-                        hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
-                    }
+                    hBox.innerHTML = json.holdings.map(sym => {
+                        const market = (json.liveMarket && json.liveMarket[sym]) ? json.liveMarket[sym] : { change: 0 };
+                        const changeVal = Number(market.change) || 0;
+                        const isUp = changeVal >= 0;
+                        const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 12px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(changeVal).toFixed(2)}%</span>`;
+                        return `<a href="https://www.google.com/finance/quote/${sym}:NASDAQ" target="_blank" class="holding-tag">${sym} ${changeHtml}</a>`;
+                    }).join('');
 
-                    // 2. 渲染建議清單 (防呆處理)
+                    // 2. 渲染建議
                     const list = document.getElementById('rec-list');
-                    // 確保 data 存在且是陣列
-                    let validData = Array.isArray(json.data) ? json.data : [];
-                    
-                    // 安全的排序：確保 date 欄位存在再轉 Date 物件
-                    validData = validData.filter(item => item && item.date).sort((a,b) => new Date(b.date) - new Date(a.date));
-                    
-                    if (validData.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; padding: 40px; color:#cbd5e1; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px;">目前無發布建議</div>`;
-                        return;
-                    }
+                    let validData = json.data || [];
+                    validData = validData.sort((a,b) => new Date(b.date) - new Date(a.date));
 
                     list.innerHTML = validData.map((item, idx) => {
-                        let badgeClass = 'badge-new';
-                        let typeText = item.type || '分析';
-                        const t = typeText.toLowerCase();
-                        
+                        let badgeClass = 'badge-new'; let typeText = item.type || '分析'; const t = typeText.toLowerCase();
                         if (t === 'new') { badgeClass = 'badge-new'; typeText = '建倉 NEW'; }
                         else if (t === 'add' || t === 'buy') { badgeClass = 'badge-buy'; typeText = '加碼 ADD'; }
                         else if (t === 'reduce' || t === 'sell') { badgeClass = 'badge-sell'; typeText = '減碼 REDUCE'; }
@@ -232,22 +126,16 @@
                             </div>
                             <div class="item-row">
                                 <span class="item-price">$${formattedPrice}</span>
-                                <span style="font-size: 11px; font-weight: 800; color: #d97706;">AI 信心: ${item.count || 1}</span>
+                                <span style="background: #fffbeb; color: #d97706; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">AI 信心: ${item.count || 1}</span>
                             </div>
-                            ${item.analysis && item.analysis.trim() !== '' ? `
-                            <div class="markdown-content" style="margin-top:10px; font-size:13px; color:#64748b;">${marked.parse(item.analysis)}</div>
-                            ` : ''}
+                            ${item.analysis ? `<div class="markdown-content" style="margin-top:10px; font-size:13px; color:#64748b;">${marked.parse(item.analysis)}</div>` : ''}
                         </div>`;
                     }).join('');
                 })
                 .catch(err => {
-                    console.error("載入或渲染失敗:", err); // 這裡會印出真正的錯誤原因
-                    document.getElementById('widget-status').innerText = '資料解析失敗';
-                    document.getElementById('skeleton-loader').innerHTML = `
-                        <div style="text-align:center; padding: 40px; border: 1px solid #fecaca; background: #fef2f2; border-radius: 16px;">
-                            <div style="color:#dc2626; font-size:14px; font-weight:900; margin-bottom: 8px;">無法顯示數據</div>
-                            <div style="color:#7f1d1d; font-size:11px;">請打開瀏覽器 Console (F12) 查看紅字錯誤。</div>
-                        </div>`;
+                    document.getElementById('widget-status').innerText = '網路或解析失敗';
+                    document.getElementById('debug-panel').style.display = 'block';
+                    document.getElementById('debug-panel').innerText = `致命錯誤：\n${err.toString()}`;
                 });
         }
         
