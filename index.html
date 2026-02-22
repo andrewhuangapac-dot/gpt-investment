@@ -81,10 +81,10 @@
         
         /* 四象限操作的專屬標籤顏色 */
         .badge { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
-        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }   /* 加碼/買入 (綠色) */
-        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }  /* 減碼/賣出 (紅色) */
-        .badge-new { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }   /* 建倉 (藍色) */
-        .badge-clear { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; } /* 清倉 (橘黃) */
+        .badge-buy { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }   
+        .badge-sell { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }  
+        .badge-new { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }   
+        .badge-clear { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; } 
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         .skeleton { background: #e2e8f0; animation: pulse 1.5s infinite; border-radius: 8px; }
@@ -159,24 +159,34 @@
         // ============================================================
 
         function loadWidgetData() {
-            // 加入時間戳防止瀏覽器快取舊資料
+            console.log("開始請求資料..."); // 診斷點 1
+            
             fetch(API_URL + '?action=public_board&t=' + Date.now())
                 .then(res => {
+                    console.log("收到伺服器回應狀態:", res.status); // 診斷點 2
                     if(!res.ok) throw new Error("HTTP 網路連線錯誤");
                     return res.json();
                 })
                 .then(json => {
-                    if (json.status !== 'success') throw new Error(json.message || "未知錯誤");
+                    console.log("解析出的 JSON 資料:", json); // 診斷點 3
+
+                    if (json.status !== 'success') {
+                        throw new Error(json.message || "後端回傳狀態非 success");
+                    }
 
                     document.getElementById('skeleton-loader').style.display = 'none';
                     document.getElementById('widget-content').style.display = 'flex';
                     document.getElementById('widget-status').innerText = '三 Agent 委員會 • 數據同步完成';
 
-                    // 1. 渲染持倉標籤與漲跌幅
+                    // 1. 渲染持倉標籤與漲跌幅 (防呆處理)
                     const hBox = document.getElementById('holdings-container');
-                    if (json.holdings && json.holdings.length > 0) {
-                        hBox.innerHTML = json.holdings.map(sym => {
-                            const market = json.liveMarket?.[sym] || { change: 0 };
+                    // 確保 holdings 存在且是陣列，如果不是陣列，就給空陣列
+                    const validHoldings = Array.isArray(json.holdings) ? json.holdings : [];
+                    
+                    if (validHoldings.length > 0) {
+                        hBox.innerHTML = validHoldings.map(sym => {
+                            // 防呆：如果 liveMarket 不存在，或是該股票代號不存在，就預設 change 為 0
+                            const market = (json.liveMarket && json.liveMarket[sym]) ? json.liveMarket[sym] : { change: 0 };
                             const changeVal = Number(market.change) || 0;
                             const isUp = changeVal >= 0;
                             const changeHtml = `<span style="color: ${isUp ? '#16a34a' : '#dc2626'}; font-size: 12px; margin-left: 4px;">${isUp?'▲':'▼'}${Math.abs(changeVal).toFixed(2)}%</span>`;
@@ -189,17 +199,20 @@
                         hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
                     }
 
-                    // 2. 渲染建議清單 (按日期新到舊排序)
+                    // 2. 渲染建議清單 (防呆處理)
                     const list = document.getElementById('rec-list');
-                    const validData = (json.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
+                    // 確保 data 存在且是陣列
+                    let validData = Array.isArray(json.data) ? json.data : [];
+                    
+                    // 安全的排序：確保 date 欄位存在再轉 Date 物件
+                    validData = validData.filter(item => item && item.date).sort((a,b) => new Date(b.date) - new Date(a.date));
                     
                     if (validData.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#cbd5e1; font-size:15px; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px; margin-bottom: 20px;">經理人近期無新戰略發布</div>`;
+                        list.innerHTML = `<div style="text-align:center; padding: 40px; color:#cbd5e1; font-weight:800; border:2px dashed #f1f5f9; border-radius:16px;">目前無發布建議</div>`;
                         return;
                     }
 
                     list.innerHTML = validData.map((item, idx) => {
-                        // 色彩對應邏輯修復
                         let badgeClass = 'badge-new';
                         let typeText = item.type || '分析';
                         const t = typeText.toLowerCase();
@@ -214,46 +227,31 @@
                         return `
                         <div class="list-item">
                             <div class="item-row">
-                                <div>
-                                    <span class="item-symbol">${item.symbol}</span>
-                                    <span class="item-date">${item.date}</span>
-                                </div>
+                                <div><span class="item-symbol">${item.symbol || '未知'}</span><span class="item-date">${item.date || ''}</span></div>
                                 <span class="badge ${badgeClass}">${typeText}</span>
                             </div>
-                            
                             <div class="item-row">
                                 <span class="item-price">$${formattedPrice}</span>
-                                <span style="background: #fffbeb; color: #d97706; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800;">
-                                    AI 分析辯論: ${item.count || 1} 次
-                                </span>
+                                <span style="font-size: 11px; font-weight: 800; color: #d97706;">AI 信心: ${item.count || 1}</span>
                             </div>
-
                             ${item.analysis && item.analysis.trim() !== '' ? `
-                            <div>
-                                <button onclick="var el=document.getElementById('ai-${idx}'); if(el.style.display==='none'){el.style.display='block';this.innerText='收起深度分析 ▲';}else{el.style.display='none';this.innerText='查看 AI 深度觀點 ▼';}" style="background:none; border:none; padding:12px 0 0 0; color:#3b82f6; font-size:13px; font-weight:800; cursor:pointer; text-decoration:underline; width: 100%; text-align: left;">
-                                    查看 AI 深度觀點 ▼
-                                </button>
-                                <div id="ai-${idx}" style="display:none; background:#f8fafc; padding:20px; border-radius:16px; font-size:13px; color:#334155; border:1px solid #e2e8f0; margin-top:12px;" class="markdown-content">
-                                    ${marked.parse(item.analysis)}
-                                </div>
-                            </div>
+                            <div class="markdown-content" style="margin-top:10px; font-size:13px; color:#64748b;">${marked.parse(item.analysis)}</div>
                             ` : ''}
                         </div>`;
                     }).join('');
                 })
                 .catch(err => {
-                    console.error("載入失敗:", err);
+                    console.error("載入或渲染失敗:", err); // 這裡會印出真正的錯誤原因
+                    document.getElementById('widget-status').innerText = '資料解析失敗';
                     document.getElementById('skeleton-loader').innerHTML = `
                         <div style="text-align:center; padding: 40px; border: 1px solid #fecaca; background: #fef2f2; border-radius: 16px;">
-                            <div style="color:#dc2626; font-size:14px; font-weight:900; margin-bottom: 8px;">無法取得最新數據</div>
-                            <div style="color:#7f1d1d; font-size:11px;">請確認後端已發布新版本，且 Web App 權限設為「所有人」。</div>
+                            <div style="color:#dc2626; font-size:14px; font-weight:900; margin-bottom: 8px;">無法顯示數據</div>
+                            <div style="color:#7f1d1d; font-size:11px;">請打開瀏覽器 Console (F12) 查看紅字錯誤。</div>
                         </div>`;
                 });
         }
         
         loadWidgetData(); 
-        // 每 5 分鐘自動刷新一次數據
-        setInterval(loadWidgetData, 300000); 
     })();
     </script>
 </body>
