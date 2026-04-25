@@ -103,6 +103,22 @@
         .markdown-content p:last-child { margin-bottom: 0; }
         .markdown-content ul { padding-left: 20px; margin-bottom: 8px; }
 
+        /* 🟢 新增：影音推薦卡片樣式 */
+        .video-card {
+            display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(to right, #fef2f2, #ffffff);
+            border-left: 4px solid #ef4444;
+            border-radius: 12px; padding: 16px; margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05);
+        }
+        .video-symbol { font-size: 18px; font-weight: 900; color: #7f1d1d; letter-spacing: 1px; }
+        .video-date { font-size: 12px; color: #f87171; font-weight: 700; font-family: monospace; }
+        .video-play-btn {
+            background: #ef4444; color: white; padding: 6px 12px; border-radius: 8px;
+            font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+
         @media (max-width: 768px) {
             body { background-color: var(--bg-card); }
             .app-container { margin: 0; border-radius: 0; border: none; box-shadow: none; min-height: 100vh; }
@@ -152,6 +168,14 @@
                 <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
             </div>
 
+            <div class="section" id="video-section" style="display: none; padding-bottom: 0;">
+                <div class="section-title" style="color: #b91c1c;">
+                    <span style="display: flex; align-items: center; gap: 6px;">🎥 影音精選觀點</span>
+                    <span style="font-size: 10px; background: #fef2f2; color: #ef4444; padding: 4px 8px; border-radius: 6px;">近 7 日</span>
+                </div>
+                <div id="video-list"></div>
+            </div>
+
             <div class="section" style="flex: 1; padding-bottom: 0;">
                 <div class="section-title">
                     <span>📢 委員會最新發布訊號(當前的投票機制為GPT，最高5票)</span>
@@ -175,7 +199,6 @@
         // ============================================================
 
         function loadWidgetData() {
-            // 加入時間戳強迫獲取最新資料，不讀取快取
             fetch(API_URL + '?action=public_board&t=' + Date.now())
                 .then(res => {
                     if(!res.ok) throw new Error("HTTP 網路連線錯誤");
@@ -184,7 +207,6 @@
                 .then(json => {
                     document.getElementById('skeleton-loader').style.display = 'none';
 
-                    // 🚨【X-Ray 診斷】
                     const holdingsEmpty = !json.holdings || json.holdings.length === 0;
                     const dataEmpty = !json.data || json.data.length === 0;
                     
@@ -193,13 +215,13 @@
                         const debugPanel = document.getElementById('debug-panel');
                         debugPanel.style.display = 'block';
                         debugPanel.innerHTML = `⚠️ <b>警告：後端傳來的資料是空的！</b>\n\n如果您的管理後台明明有資料，這表示：\n1. 您忘記發布「新版本」的 GAS。\n2. 您這個 HTML 裡面的 API_URL 貼成了舊的網址。\n\n<b>【後端真實回傳結果】：</b>\n${JSON.stringify(json, null, 2)}`;
-                        return; // 停止渲染
+                        return;
                     }
 
                     document.getElementById('widget-content').style.display = 'flex';
                     document.getElementById('widget-status').innerText = '三 Agent 委員會 • 數據同步完成';
 
-                    // 1. 渲染持倉標籤與漲跌幅
+                    // 1. 渲染持倉雷達
                     const hBox = document.getElementById('holdings-container');
                     const validHoldings = Array.isArray(json.holdings) ? json.holdings : [];
                     
@@ -218,18 +240,46 @@
                         hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>';
                     }
 
-                    // 2. 渲染建議清單 (限制為近 7 天內)
-                    const list = document.getElementById('rec-list');
-                    let validData = Array.isArray(json.data) ? json.data : [];
+                    // 🟢 2. 渲染影音精選 (過濾近 7 日)
+                    const videoSect = document.getElementById('video-section');
+                    const videoList = document.getElementById('video-list');
+                    let validVideos = Array.isArray(json.videoRecs) ? json.videoRecs : [];
                     
-                    // 🚀 核心更新：過濾出 7 天內的資料
                     const sevenDaysAgo = new Date();
                     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    
+                    validVideos = validVideos.filter(item => {
+                        if (!item || !item.date) return false;
+                        const itemDate = new Date(item.date);
+                        return itemDate >= sevenDaysAgo;
+                    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                    if (validVideos.length > 0) {
+                        videoSect.style.display = 'block';
+                        videoList.innerHTML = validVideos.map(v => `
+                            <div class="video-card">
+                                <div>
+                                    <div class="video-symbol">${v.symbol}</div>
+                                    <div class="video-date">${v.date}</div>
+                                </div>
+                                <div class="video-play-btn">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                    觀看解析
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        videoSect.style.display = 'none'; // 沒有資料就隱藏這整個區塊
+                    }
+
+                    // 3. 渲染戰略訊號清單 (過濾近 7 日)
+                    const list = document.getElementById('rec-list');
+                    let validData = Array.isArray(json.data) ? json.data : [];
                     
                     validData = validData.filter(item => {
                         if (!item || !item.date) return false;
                         const itemDate = new Date(item.date);
-                        return itemDate >= sevenDaysAgo; // 只保留日期大於等於 7 天前的發布
+                        return itemDate >= sevenDaysAgo;
                     }).sort((a,b) => new Date(b.date) - new Date(a.date));
                     
                     if (validData.length === 0) {
@@ -249,7 +299,6 @@
 
                         const formattedPrice = Number(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         
-                        // 🟢 核心修改：判斷如果有持倉佔比，就生成一個深色的小標籤
                         let pctHtml = '';
                         if (item.positionPct && Number(item.positionPct) > 0) {
                             pctHtml = `<span style="background: #334155; color: #f8fafc; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 900; margin-left: 8px; vertical-align: middle;">${item.positionPct}%</span>`;
@@ -296,7 +345,6 @@
         }
         
         loadWidgetData(); 
-        // 每 5 分鐘自動刷新一次數據
         setInterval(loadWidgetData, 300000); 
     })();
     </script>
