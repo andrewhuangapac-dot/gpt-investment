@@ -166,7 +166,7 @@
                         videoList.innerHTML = validVideos.map(v => {
                             // 判斷有無網址，有則生成 <a>，無則生成 <div>
                             let btnHtml = v.url && v.url.trim() !== '' 
-                                ? `<a href="${v.url}" target="_blank" class="video-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 觀看解析</a>`
+                                ? `<a href="${v.url}" target="_blank" class="video-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Tiktok</a>`
                                 : `<div class="video-play-btn" style="opacity: 0.4; cursor: not-allowed; background: #94a3b8;">未附連結</div>`;
                             return `<div class="video-card"><div><div class="video-symbol">${v.symbol}</div><div class="video-date">${v.date}</div></div>${btnHtml}</div>`;
                         }).join('');
