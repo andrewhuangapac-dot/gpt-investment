@@ -49,8 +49,6 @@
         .markdown-content p { margin-bottom: 8px; }
         .markdown-content p:last-child { margin-bottom: 0; }
         .markdown-content ul { padding-left: 20px; margin-bottom: 8px; }
-
-        /* 🎥 影音推薦卡片樣式 */
         .video-card { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to right, #fef2f2, #ffffff); border-left: 4px solid #ef4444; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05); }
         .video-symbol { font-size: 18px; font-weight: 900; color: #7f1d1d; letter-spacing: 1px; }
         .video-date { font-size: 12px; color: #f87171; font-weight: 700; font-family: monospace; }
@@ -89,14 +87,20 @@
 
         <div id="widget-content" style="display: none; flex: 1; flex-direction: column;">
             
-            <div class="section section-bg">
+            <div class="section" id="allocation-section" style="display: none; padding-bottom: 0;">
+                <div class="section-title">📊 基金資產配置 (包含現金水位)</div>
+                <div id="allocation-bar" style="display: flex; height: 14px; border-radius: 8px; overflow: hidden; margin-bottom: 14px; background: #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);"></div>
+                <div id="allocation-legend" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+            </div>
+
+            <div class="section section-bg" style="margin-top: 24px;">
                 <div class="section-title">💼 當前核心持倉雷達</div>
                 <div id="holdings-container" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
             </div>
 
             <div class="section" id="video-section" style="display: none; padding-bottom: 0;">
                 <div class="section-title" style="color: #b91c1c;">
-                    <span style="display: flex; align-items: center; gap: 6px;">🎥 TikTok Video</span>
+                    <span style="display: flex; align-items: center; gap: 6px;">🎥 影音精選觀點</span>
                     <span style="font-size: 10px; background: #fef2f2; color: #ef4444; padding: 4px 8px; border-radius: 6px;">近 7 日</span>
                 </div>
                 <div id="video-list"></div>
@@ -119,7 +123,7 @@
    <script>
     (function() {
         // 🔴🔴🔴 記得替換成您最新發布的 API 網址！
-        const API_URL = 'https://script.google.com/macros/s/AKfycbzj_9p5gBQLl7jNNTB1RnylTJsXoT5R-ueZ-UUjEWrG1L2-xN_cNyVEKL9fUNAGx4Am/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzJgJeKvAm4vPquJylhP780Puq3cfF-9fTZUHgVK_92KRX85fBBO9sm-yhUo52um5cI/exec'; 
 
         function loadWidgetData() {
             fetch(API_URL + '?action=public_board&t=' + Date.now())
@@ -139,6 +143,40 @@
                     document.getElementById('widget-content').style.display = 'flex';
                     document.getElementById('widget-status').innerText = '三 Agent 委員會 • 數據同步完成';
 
+                    // 🟢 渲染資產配置 (Allocation)
+                    const allocSect = document.getElementById('allocation-section');
+                    const allocBar = document.getElementById('allocation-bar');
+                    const allocLegend = document.getElementById('allocation-legend');
+                    
+                    if (json.allocation && json.allocation.length > 0) {
+                        allocSect.style.display = 'block';
+                        // 專業的機構色票
+                        const colorPalette = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6', '#f43f5e', '#06b6d4', '#64748b'];
+                        let barHtml = '';
+                        let legendHtml = '';
+                        let colorIdx = 0;
+                        
+                        json.allocation.forEach(item => {
+                            // 現金固定為綠色，其餘輪替顏色
+                            const color = item.isCash ? '#10b981' : colorPalette[colorIdx % colorPalette.length];
+                            if (!item.isCash) colorIdx++;
+                            
+                            barHtml += `<div style="width: ${item.pct}%; background: ${color}; transition: width 0.5s ease;" title="${item.name}: ${item.pct}%"></div>`;
+                            legendHtml += `
+                                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 8px;">
+                                    <div style="width: 10px; height: 10px; border-radius: 50%; background: ${color};"></div>
+                                    ${item.name} <span style="color: #0f172a; font-family: monospace; font-size: 12px; margin-left: 2px;">${item.pct}%</span>
+                                </div>
+                            `;
+                        });
+                        
+                        allocBar.innerHTML = barHtml;
+                        allocLegend.innerHTML = legendHtml;
+                    } else {
+                        allocSect.style.display = 'none';
+                    }
+
+                    // 渲染持倉雷達
                     const hBox = document.getElementById('holdings-container');
                     const validHoldings = Array.isArray(json.holdings) ? json.holdings : [];
                     if (validHoldings.length > 0) {
@@ -150,7 +188,7 @@
                         }).join('');
                     } else { hBox.innerHTML = '<span style="font-size:14px; color:#cbd5e1; font-weight:bold;">目前無持倉資料</span>'; }
 
-                    // 🎥 渲染影音精選 (帶點擊連結)
+                    // 渲染影音精選
                     const videoSect = document.getElementById('video-section');
                     const videoList = document.getElementById('video-list');
                     let validVideos = Array.isArray(json.videoRecs) ? json.videoRecs : [];
@@ -164,14 +202,14 @@
                     if (validVideos.length > 0) {
                         videoSect.style.display = 'block';
                         videoList.innerHTML = validVideos.map(v => {
-                            // 判斷有無網址，有則生成 <a>，無則生成 <div>
                             let btnHtml = v.url && v.url.trim() !== '' 
-                                ? `<a href="${v.url}" target="_blank" class="video-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Tiktok</a>`
+                                ? `<a href="${v.url}" target="_blank" class="video-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 觀看解析</a>`
                                 : `<div class="video-play-btn" style="opacity: 0.4; cursor: not-allowed; background: #94a3b8;">未附連結</div>`;
                             return `<div class="video-card"><div><div class="video-symbol">${v.symbol}</div><div class="video-date">${v.date}</div></div>${btnHtml}</div>`;
                         }).join('');
                     } else { videoSect.style.display = 'none'; }
 
+                    // 渲染戰略發布
                     const list = document.getElementById('rec-list');
                     let validData = Array.isArray(json.data) ? json.data : [];
                     validData = validData.filter(item => { if (!item || !item.date) return false; return new Date(item.date) >= sevenDaysAgo; }).sort((a,b) => new Date(b.date) - new Date(a.date));
